@@ -1,6 +1,6 @@
 {
   "name": "react-router-query",
-  "version": "0.0.0",
+  "version": "0.0.1",
   "description": "An API to query static react-router routes",
   "main": "lib/index.js",
   "scripts": {
