@@ -58,11 +58,13 @@
     "react-router": "^2.5.2"
   },
   "jest": {
+    "automock": false,
+    "testFileExtensions": [
+      "js",
+      "jsx"
+    ],
     "testPathDirs": [
       "<rootDir>/src"
-    ],
-    "unmockedModulePathPatterns": [
-      "<rootDir>/node_modules"
     ]
   }
 }
