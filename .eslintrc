@@ -5,9 +5,11 @@
     "flow-vars"
   ],
   "env": {
+    "jasmine": true,
     "jest": true
   },
   "rules": {
+    "no-underscore-dangle": 0,
     "flow-vars/define-flow-type": 1,
     "flow-vars/use-flow-type": 1
   }

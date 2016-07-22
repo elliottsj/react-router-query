@@ -1,5 +1,9 @@
 // @flow
 
+import curry from 'lodash/fp/curry';
+import {
+  createRoutes,
+} from 'react-router';
 import path from 'path';
 import pify from 'pify';
 
@@ -7,8 +11,44 @@ import promiseAllValues from './utils/promiseAllValues';
 import match from './utils/match';
 import mapValues from 'lodash/fp/mapValues';
 
-export { default as query } from './components/query';
+export { default as withQuery } from './components/query';
 export { default as QueryProvider } from './components/QueryProvider';
+
+async function synchronize(prefix, routes: PlainRoute[]): SyncRoute[] {
+  // for each PlainRoute which has path starting with prefix
+  //   create SyncRoute by resolving `getComponent` / `getIndexRoute` / `getChildRoutes` to synchronous equivalents
+  //   call `query` on each child route, passing remaining prefix after omitting PlainRoute path
+
+  return await Promise.all(routes.map(async (plainRoute) => ({
+    ...plainRoute,
+    component: (
+      plainRoute.component ||
+      await pify(plainRoute.getComponent)(/* nextState: */ null)
+    ),
+    components: (
+      plainRoute.components ||
+      await pify(plainRoute.getComponents)(/* nextState: */ null)
+    ),
+    indexRoute: (
+      plainRoute.indexRoute ||
+      await pify(plainRoute.getIndexRoute)(/* partialNextState: */ null)
+    ),
+    childRoutes: await synchronize(
+      prefix, // todo: handle prefix
+      plainRoute.childRoutes ||
+      await pify(plainRoute.getChildRoutes)(/* partialNextState: */ null)
+    ),
+  })));
+}
+
+export async function query({ prefix = '' }, routes): SyncRoute[] {
+  const plainRoutes: PlainRoute[] = createRoutes(routes);
+  return synchronize(prefix, plainRoutes);
+}
+
+export function flatten(routes: SyncRoute[]): FlatRoute[] {
+
+}
 
 async function getIndexRoute(route) {
   if (route.indexRoute) {
