@@ -123,10 +123,6 @@ describe('query', () => {
     expect(result[0].childRoutes[2].childRoutes[0].path).toBe('messages/:id');
     expect(result[0].childRoutes[2].childRoutes[0].component).toBe(Message);
   });
-
-  it('flattens routes', async () => {
-
-  });
 });
 
 describe('flatten', () => {

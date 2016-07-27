@@ -14,36 +14,61 @@ import mapValues from 'lodash/fp/mapValues';
 export { default as withQuery } from './components/query';
 export { default as QueryProvider } from './components/QueryProvider';
 
-async function synchronize(prefix, routes: PlainRoute[]): SyncRoute[] {
-  // for each PlainRoute which has path starting with prefix
-  //   create SyncRoute by resolving `getComponent` / `getIndexRoute` / `getChildRoutes` to synchronous equivalents
-  //   call `query` on each child route, passing remaining prefix after omitting PlainRoute path
-
-  return await Promise.all(routes.map(async (plainRoute) => ({
-    ...plainRoute,
-    component: (
-      plainRoute.component ||
-      await pify(plainRoute.getComponent)(/* nextState: */ null)
-    ),
-    components: (
-      plainRoute.components ||
-      await pify(plainRoute.getComponents)(/* nextState: */ null)
-    ),
-    indexRoute: (
-      plainRoute.indexRoute ||
-      await pify(plainRoute.getIndexRoute)(/* partialNextState: */ null)
-    ),
-    childRoutes: await synchronize(
-      prefix, // todo: handle prefix
-      plainRoute.childRoutes ||
-      await pify(plainRoute.getChildRoutes)(/* partialNextState: */ null)
-    ),
-  })));
+/**
+ * Turn PlainRoutes into SyncRoutes by resolving react-router async getters
+ * to their synchronous equivalents:
+ *  - getChildRoutes -> childRoutes
+ *  - getComponent   -> component
+ *  - getComponents  -> components
+ *  - getIndexRoute  -> indexRoute
+ *
+ * @param prefix Only routes starting with this prefix will be returned
+ * @param routes The list of PlainRoutes
+ */
+async function synchronizeRoutes(
+  filterRoutes: (route: PlainRoute, fullpath: string) => boolean,
+  pathprefix,
+  routes: PlainRoute[]
+): SyncRoute[] {
+  return await Promise.all(routes.filter(
+    route => filterRoutes(route, pathprefix + route.path)
+  ).map(async (route) => {
+    const component: ReactClass = (
+      route.component ||
+      route.getComponent && await pify(route.getComponent)(/* nextState: */ null)
+    );
+    const components: { [key: string]: ReactClass } = (
+      route.components ||
+      route.getComponents && await pify(route.getComponents)(/* nextState: */ null)
+    );
+    const indexRoute: SyncRoute = (
+      route.indexRoute ||
+      route.getIndexRoute && await pify(route.getIndexRoute)(/* partialNextState: */ null)
+    );
+    const childRoutes: PlainRoute[] = await synchronizeRoutes(
+      filterRoutes,
+      pathprefix + route.path,
+      route.childRoutes ||
+      route.getChildRoutes && await pify(route.getChildRoutes)(/* partialNextState: */ null) ||
+      []
+    );
+    return {
+      ...route,
+      component,
+      components,
+      indexRoute,
+      childRoutes,
+    };
+  }));
 }
 
 export async function query({ prefix = '' }, routes): SyncRoute[] {
   const plainRoutes: PlainRoute[] = createRoutes(routes);
-  return synchronize(prefix, plainRoutes);
+  return await synchronizeRoutes(
+    (route, fullpath) => fullpath.startsWith(prefix),
+    '',
+    plainRoutes
+  );
 }
 
 export function flatten(routes: SyncRoute[]): FlatRoute[] {
