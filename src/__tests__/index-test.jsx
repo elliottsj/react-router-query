@@ -12,8 +12,9 @@ import {
   Router,
 } from 'react-router';
 import {
-  flattenRoutes,
+  flatten,
   omitUndefinedValues,
+  synchronize,
   query,
   QueryProvider,
   withQuery,
@@ -122,7 +123,7 @@ const routesPlainPartialAsync = {
       childRoutes: [
         {
           path: 'settings',
-          component: Settings,
+          getComponent: asyncGetter(Settings),
         },
         {
           from: 'messages/:id',
@@ -157,9 +158,9 @@ describe('omitUndefinedValues', () => {
   });
 });
 
-describe('query', () => {
-  it('resolves synchronous JSX routes ', async () => {
-    const result = await query({ prefix: '/' }, routesJsx);
+describe('synchronize', () => {
+  it('synchronizes synchronous JSX routes ', async () => {
+    const result = await synchronize('/', routesJsx);
     expect(result).toEqual([
       {
         path: '/',
@@ -205,8 +206,8 @@ describe('query', () => {
     ]);
   });
 
-  it('resolves synchronous plain routes ', async () => {
-    const result = await query({ prefix: '/' }, routesPlain);
+  it('synchronizes synchronous plain routes ', async () => {
+    const result = await synchronize('/', routesPlain);
     expect(result).toEqual([
       {
         path: '/',
@@ -252,12 +253,8 @@ describe('query', () => {
     ]);
   });
 
-  it('resolves asynchronous plain routes ', async () => {
-    const result = await query({ prefix: '/' }, routesPlainPartialAsync);
-    expect(result[0].childRoutes[1].indexRoute).toEqual({
-      getComponent: jasmine.any(Function),
-      component: Messages,
-    });
+  it('synchronizes asynchronous plain routes ', async () => {
+    const result = await synchronize('/', routesPlainPartialAsync);
     expect(result).toEqual([
       {
         path: '/',
@@ -284,6 +281,7 @@ describe('query', () => {
             childRoutes: [
               {
                 path: 'settings',
+                getComponent: jasmine.any(Function),
                 component: Settings,
               },
               {
@@ -309,55 +307,51 @@ describe('query', () => {
       },
     ]);
   });
+
+  it('synchronizes and includes only routes that match the given prefix', async () => {
+    const result = await synchronize('/inbox', routesPlainPartialAsync);
+    expect(result).toEqual([
+      {
+        path: '/',
+        getComponent: jasmine.any(Function),
+        getChildRoutes: jasmine.any(Function),
+        component: App,
+        indexRoute: {
+          component: Dashboard,
+        },
+        childRoutes: [
+          {
+            path: 'inbox',
+            getComponent: jasmine.any(Function),
+            getIndexRoute: jasmine.any(Function),
+            component: Inbox,
+            indexRoute: {
+              getComponent: jasmine.any(Function),
+              component: Messages,
+            },
+            childRoutes: [
+              {
+                path: 'settings',
+                getComponent: jasmine.any(Function),
+                component: Settings,
+              },
+              {
+                from: 'messages/:id',
+                to: '/messages/:id',
+                path: 'messages/:id',
+                onEnter: jasmine.any(Function),
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+  });
 });
 
-describe('flattenRoutes', () => {
-  fit('flattens routes', async () => {
-    const result = flattenRoutes(await query({ prefix: '/' }, routesPlain));
-    expect(result[0]).toEqual({
-      path: '/',
-      component: Dashboard,
-      parents: [jasmine.objectContaining({ component: App })],
-    });
-    expect(result[1]).toEqual({
-      path: '/about',
-      component: About,
-      parents: [jasmine.objectContaining({ component: App })],
-    });
-    expect(result[2]).toEqual({
-      path: '/inbox',
-      component: Messages,
-      parents: [
-        jasmine.objectContaining({ component: App }),
-        jasmine.objectContaining({ component: Inbox }),
-      ],
-    });
-    expect(result[3]).toEqual({
-      path: '/inbox/settings',
-      component: Settings,
-      parents: [
-        jasmine.objectContaining({ component: App }),
-        jasmine.objectContaining({ component: Inbox }),
-      ],
-    });
-    expect(result[4]).toEqual({
-      from: 'messages/:id',
-      to: '/messages/:id',
-      path: '/inbox/messages/:id',
-      onEnter: jasmine.any(Function),
-      parents: [
-        jasmine.objectContaining({ component: App }),
-        jasmine.objectContaining({ component: Inbox }),
-      ],
-    });
-    expect(result[5]).toEqual({
-      path: '/messages/:id',
-      component: Message,
-      parents: [
-        jasmine.objectContaining({ component: App }),
-        jasmine.objectContaining({ component: Inbox }),
-      ],
-    });
+describe('flatten', () => {
+  it('flattens routes', async () => {
+    const result = flatten(await synchronize('/', routesPlain));
     expect(result).toEqual([
       {
         path: '/',
@@ -410,7 +404,7 @@ describe('flattenRoutes', () => {
 xdescribe('withQuery', () => {
   it('creates a higher-order component, with props corresponding to queries', () => {
     const AppWithQuery = withQuery({
-      pages: query({ prefix: '/' }),
+      pages: query('/'),
     })(App);
 
     const routes = (

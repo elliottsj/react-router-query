@@ -82,14 +82,21 @@ async function synchronizeRoutes(
   ));
 }
 
-export async function query({ prefix = '' }, routes): SyncRoute[] {
+export async function synchronize(prefix = '', routes): SyncRoute[] {
   const plainRoutes: PlainRoute[] = createRoutes(routes);
   return await synchronizeRoutes(
-    (route, fullpath) => fullpath.startsWith(prefix),
+    (route, fullpath) => {
+      return fullpath.startsWith(prefix) || prefix.startsWith(fullpath);
+    },
     '',
     plainRoutes
   );
 }
+
+/**
+ * Synchronize + flatten
+ */
+export async function query(prefix = '', routes: PlainRoute[]) {}
 
 export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): FlatRoute[] {
   const newParents = [...parents, route];
@@ -111,7 +118,7 @@ export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): Flat
   return flatRoutes;
 }
 
-export function flattenRoutes(routes: SyncRoute[]): FlatRoute[] {
+export function flatten(routes: SyncRoute[]): FlatRoute[] {
   return flatMap(route => flattenRoute([], route), routes);
 }
 
