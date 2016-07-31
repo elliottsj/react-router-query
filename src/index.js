@@ -149,21 +149,24 @@ export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): Flat
 }
 
 export function flatten(routes: SyncRoute[]): FlatRoute[] {
+  debugger;
   return flatMap(route => flattenRoute([], route), routes);
 }
 
 /**
  * Synchronize + flatten
  */
-function _query(prefix = '', routes: PlainRoute[]) {
+function _query(prefix, routes: PlainRoute[]) {
   const flattenWithPrefix = compose(
     filter(route => route.fullPath.startsWith(prefix)),
     flatten
   );
-  if (every(isSynchronous(prefix), routes)) {
-    return flattenWithPrefix(routes);
+
+  const plainRoutes = createRoutes(routes);
+  if (isSynchronous(prefix, plainRoutes)) {
+    return flattenWithPrefix(plainRoutes);
   }
-  return synchronize(prefix, routes).then(flattenWithPrefix);
+  return synchronize(prefix, plainRoutes).then(flattenWithPrefix);
 }
 
 type Query =
