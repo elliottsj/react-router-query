@@ -1,6 +1,10 @@
 // @flow
 
-import curry from 'lodash/fp/curry';
+import compact from 'lodash/fp/compact';
+import compose from 'lodash/fp/compose';
+import flatMap from 'lodash/fp/flatMap';
+import map from 'lodash/fp/map';
+import pickBy from 'lodash/fp/pickBy';
 import {
   createRoutes,
 } from 'react-router';
@@ -13,6 +17,47 @@ import mapValues from 'lodash/fp/mapValues';
 
 export { default as withQuery } from './components/query';
 export { default as QueryProvider } from './components/QueryProvider';
+
+export const isEmptyArray = array => Array.isArray(array) && array.length === 0;
+export const omitUndefinedValues = pickBy(value => value !== undefined);
+export const compactMap = compose(compact, map);
+
+function normalizePath(p: string) {
+  return p.replace(/\/\//g, '/');
+}
+
+async function synchronizeRoute(filterChildRoutes, pathprefix, route: PlainRoute): SyncRoute {
+  if (!route) {
+    return undefined;
+  }
+  const component: ReactClass = (
+    route.component ||
+    route.getComponent && await pify(route.getComponent)(/* nextState: */ null)
+  );
+  const components: { [key: string]: ReactClass } = (
+    route.components ||
+    route.getComponents && await pify(route.getComponents)(/* nextState: */ null)
+  );
+  const indexRoute: SyncRoute = await synchronizeRoute(
+    filterChildRoutes,
+    pathprefix + route.path,
+    route.indexRoute ||
+    route.getIndexRoute && await pify(route.getIndexRoute)(/* partialNextState: */ null)
+  );
+  const childRoutes: PlainRoute[] = await synchronizeRoutes(
+    filterChildRoutes,
+    pathprefix + route.path,
+    route.childRoutes ||
+    route.getChildRoutes && await pify(route.getChildRoutes)(/* partialNextState: */ null)
+  );
+  return omitUndefinedValues({
+    ...route,
+    component,
+    components,
+    indexRoute,
+    childRoutes: isEmptyArray(childRoutes) ? undefined : childRoutes,
+  });
+}
 
 /**
  * Turn PlainRoutes into SyncRoutes by resolving react-router async getters
@@ -28,38 +73,13 @@ export { default as QueryProvider } from './components/QueryProvider';
 async function synchronizeRoutes(
   filterRoutes: (route: PlainRoute, fullpath: string) => boolean,
   pathprefix,
-  routes: PlainRoute[]
+  routes: PlainRoute[] = []
 ): SyncRoute[] {
   return await Promise.all(routes.filter(
     route => filterRoutes(route, pathprefix + route.path)
-  ).map(async (route) => {
-    const component: ReactClass = (
-      route.component ||
-      route.getComponent && await pify(route.getComponent)(/* nextState: */ null)
-    );
-    const components: { [key: string]: ReactClass } = (
-      route.components ||
-      route.getComponents && await pify(route.getComponents)(/* nextState: */ null)
-    );
-    const indexRoute: SyncRoute = (
-      route.indexRoute ||
-      route.getIndexRoute && await pify(route.getIndexRoute)(/* partialNextState: */ null)
-    );
-    const childRoutes: PlainRoute[] = await synchronizeRoutes(
-      filterRoutes,
-      pathprefix + route.path,
-      route.childRoutes ||
-      route.getChildRoutes && await pify(route.getChildRoutes)(/* partialNextState: */ null) ||
-      []
-    );
-    return {
-      ...route,
-      component,
-      components,
-      indexRoute,
-      childRoutes,
-    };
-  }));
+  ).map(
+    route => synchronizeRoute(filterRoutes, pathprefix, route)
+  ));
 }
 
 export async function query({ prefix = '' }, routes): SyncRoute[] {
@@ -71,8 +91,28 @@ export async function query({ prefix = '' }, routes): SyncRoute[] {
   );
 }
 
-export function flatten(routes: SyncRoute[]): FlatRoute[] {
+export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): FlatRoute[] {
+  const newParents = [...parents, route];
+  let flatRoutes = [];
+  if (route.indexRoute) {
+    flatRoutes = [...flatRoutes, ...flattenRoute(newParents, route.indexRoute)];
+  }
+  if (route.childRoutes) {
+    flatRoutes = [...flatRoutes, ...flatMap(childRoute => flattenRoute(newParents, childRoute), route.childRoutes)];
+  }
+  if (!route.indexRoute && !route.childRoutes) {
+    const newPath = normalizePath(`${compactMap(parent => parent.path, parents).join('/')}${route.path ? `/${route.path}` : ''}`);
+    flatRoutes = [...flatRoutes, {
+      ...route,
+      path: newPath,
+      parents: parents.map(parent => ({ component: parent.component })),
+    }];
+  }
+  return flatRoutes;
+}
 
+export function flattenRoutes(routes: SyncRoute[]): FlatRoute[] {
+  return flatMap(route => flattenRoute([], route), routes);
 }
 
 async function getIndexRoute(route) {
