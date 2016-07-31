@@ -2,21 +2,19 @@
 
 import compact from 'lodash/fp/compact';
 import compose from 'lodash/fp/compose';
+import curry from 'lodash/fp/curry';
+import every from 'lodash/fp/every';
+import filter from 'lodash/fp/filter';
 import flatMap from 'lodash/fp/flatMap';
 import map from 'lodash/fp/map';
 import pickBy from 'lodash/fp/pickBy';
 import {
   createRoutes,
 } from 'react-router';
-import path from 'path';
 import pify from 'pify';
 
-import promiseAllValues from './utils/promiseAllValues';
-import match from './utils/match';
-import mapValues from 'lodash/fp/mapValues';
-
-export { default as withQuery } from './components/query';
-export { default as QueryProvider } from './components/QueryProvider';
+export { default as RoutesProvider } from './components/RoutesProvider';
+export { default as withQuery } from './components/withQuery';
 
 export const isEmptyArray = array => Array.isArray(array) && array.length === 0;
 export const omitUndefinedValues = pickBy(value => value !== undefined);
@@ -24,6 +22,24 @@ export const compactMap = compose(compact, map);
 
 function normalizePath(p: string) {
   return p.replace(/\/\//g, '/');
+}
+
+/**
+ * Return true iff the given route path matches the given path prefix.
+ * A path matches a prefix if either the prefix begins with the path,
+ * or the path begins with the prefix.$
+ *
+ * @example
+ *   matchesPrefix('/', '/inbox')      // true
+ *   matchesPrefix('/inbox', '/')      // true
+ *   matchesPrefix('/about', '/inbox') // false
+ */
+function matchesPrefix(prefix: string, routePath: string) {
+  return prefix.startsWith(routePath) || routePath.startsWith(prefix);
+}
+
+function joinPaths(path1, path2) {
+  return `${path1.replace(/.\/$/, '')}/${path2.replace(/^\//, '')}`;
 }
 
 async function synchronizeRoute(filterChildRoutes, pathprefix, route: PlainRoute): SyncRoute {
@@ -71,7 +87,7 @@ async function synchronizeRoute(filterChildRoutes, pathprefix, route: PlainRoute
  * @param routes The list of PlainRoutes
  */
 async function synchronizeRoutes(
-  filterRoutes: (route: PlainRoute, fullpath: string) => boolean,
+  filterRoutes: (route: PlainRoute, fullPath: string) => boolean,
   pathprefix,
   routes: PlainRoute[] = []
 ): SyncRoute[] {
@@ -85,18 +101,32 @@ async function synchronizeRoutes(
 export async function synchronize(prefix = '', routes): SyncRoute[] {
   const plainRoutes: PlainRoute[] = createRoutes(routes);
   return await synchronizeRoutes(
-    (route, fullpath) => {
-      return fullpath.startsWith(prefix) || prefix.startsWith(fullpath);
-    },
+    (route, fullPath) => matchesPrefix(prefix, fullPath),
     '',
     plainRoutes
   );
 }
 
-/**
- * Synchronize + flatten
- */
-export async function query(prefix = '', routes: PlainRoute[]) {}
+function _isRouteSynchronous(filterPrefix, parentPrefix, route) {
+  const fullPath = joinPaths(parentPrefix, route.path || '');
+  return (
+    !matchesPrefix(filterPrefix, fullPath) ||
+    !route.getComponent &&
+    !route.getComponents &&
+    !route.getIndexRoute &&
+    !route.getChildRoutes &&
+    (!route.childRoutes || every(isRouteSynchronous(filterPrefix, fullPath), route.childRoutes))
+  );
+}
+
+const isRouteSynchronous = curry(_isRouteSynchronous);
+
+export function isSynchronous(prefix: string = '', routes: PlainRoute | PlainRoute[]) {
+  if (Array.isArray(routes)) {
+    return every(isRouteSynchronous(prefix, ''), routes);
+  }
+  return isRouteSynchronous(prefix, '', routes);
+}
 
 export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): FlatRoute[] {
   const newParents = [...parents, route];
@@ -111,8 +141,8 @@ export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): Flat
     const newPath = normalizePath(`${compactMap(parent => parent.path, parents).join('/')}${route.path ? `/${route.path}` : ''}`);
     flatRoutes = [...flatRoutes, {
       ...route,
-      path: newPath,
-      parents: parents.map(parent => ({ component: parent.component })),
+      fullPath: newPath,
+      parents,
     }];
   }
   return flatRoutes;
@@ -122,69 +152,21 @@ export function flatten(routes: SyncRoute[]): FlatRoute[] {
   return flatMap(route => flattenRoute([], route), routes);
 }
 
-async function getIndexRoute(route) {
-  if (route.indexRoute) {
-    return route.indexRoute;
-  } else if (route.getIndexRoute) {
-    return new Promise((resolve, reject) => route.getIndexRoute(null, (error, indexRoute) => {
-      if (error) {
-        reject(error);
-      } else {
-        resolve(indexRoute);
-      }
-    }));
+/**
+ * Synchronize + flatten
+ */
+function _query(prefix = '', routes: PlainRoute[]) {
+  const flattenWithPrefix = compose(
+    filter(route => route.fullPath.startsWith(prefix)),
+    flatten
+  );
+  if (every(isSynchronous(prefix), routes)) {
+    return flattenWithPrefix(routes);
   }
-  return null;
+  return synchronize(prefix, routes).then(flattenWithPrefix);
 }
 
-async function isIndexRoute(routes) {
-  const indexRoute = await getIndexRoute(routes[routes.length - 2]);
-  const lastRoute = routes[routes.length - 1];
-  return indexRoute === lastRoute;
-}
+type Query =
+  (prefix: string, routes: PlainRoute[] | SyncRoute[]) => Promise<FlatRoute[]> | FlatRoute[];
 
-async function getChildRoutes(route) {
-  if (route.childRoutes) {
-    return route.childRoutes;
-  }
-  return pify(route.getChildRoutes)(/* location: */ null);
-}
-
-export function queryRoute(location) {
-  return async (routes) => {
-    const [redirectLocation, renderProps] = await match({ routes, location });
-    if (redirectLocation) {
-      throw new Error(`Unexpected redirect: ${redirectLocation}`);
-    }
-    const matchedRoutes = renderProps.routes;
-    const route =
-      await isIndexRoute(matchedRoutes)
-        ? matchedRoutes[matchedRoutes.length - 2]
-        : matchedRoutes[matchedRoutes.length - 1];
-    return route;
-  };
-}
-
-export function queryChildRoutes(location, { index = true }) {
-  return async (routes) => {
-    const childRoutes = await getChildRoutes(await queryRoute(location)(routes));
-    return childRoutes.map(route => ({
-      ...route,
-      route,
-      fullpath: path.resolve(location.pathname || location, route.path),
-    }));
-  };
-}
-
-async function resolveQueries(routes, component) {
-  if (!component.nucleateQuery) {
-    return null;
-  }
-  return promiseAllValues(mapValues(query => query(routes), component.nucleateQuery));
-}
-
-export async function resolveComponentsQueries(routes, components) {
-  return new Map(await Promise.all(components.map(
-    async component => [component, await resolveQueries(routes, component)]
-  )));
-}
+export const query: Query = curry(_query);
