@@ -149,7 +149,6 @@ export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): Flat
 }
 
 export function flatten(routes: SyncRoute[]): FlatRoute[] {
-  debugger;
   return flatMap(route => flattenRoute([], route), routes);
 }
 

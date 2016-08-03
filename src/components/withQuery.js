@@ -1,9 +1,66 @@
+import Rx from 'rxjs/Rx';
 import compose from 'lodash/fp/compose';
+import filter from 'lodash/fp/filter';
+import fromPairs from 'lodash/fp/fromPairs';
+import map from 'lodash/fp/map';
+import mapValues from 'lodash/fp/mapValues';
+import partition from 'lodash/fp/partition';
+import pickBy from 'lodash/fp/pickBy';
+import pipe from 'lodash/fp/pipe';
+import toPairs from 'lodash/fp/toPairs';
 import { PropTypes } from 'react';
-import { getContext } from 'recompose';
+import { getContext, lifecycle, mapPropsStream, withProps } from 'recompose';
 
-export default compose(
+import isPromise from '../utils/isPromise';
+
+type Query = [string, FlatRoute[] | Promise<FlatRoute[]>];
+type QuerySet = { [name: string]: FlatRoute[] | Promise<FlatRoute[]> };
+
+export default queries => compose(
+  withProps({ queries }),
   getContext({
-    routes: PropTypes.object.isRequired,
-  })
+    __routes: PropTypes.arrayOf(PropTypes.object).isRequired,
+  }),
+  mapPropsStream(
+    props$ => {
+      const rxjsProps$ = Rx.Observable.from(props$);
+      const queries$: Observable<QuerySet> = rxjsProps$.map(
+        ({ __routes, queries }) => mapValues(query => query(__routes), queries),
+      );
+      const syncQueryResults$ = queries$.map(
+        pickBy(route => !isPromise(route))
+      );
+      const asyncQueryResults$ = Rx.Observable.of({}).concat(queries$.flatMap(
+        pipe(
+          pickBy(isPromise),
+          mapValues((routesPromise, name) => routesPromise.then(routes => [name, routes])),
+          promises => Promise.all(promises).then(fromPairs)
+        )
+      ));
+      return rxjsProps$.combineLatest(
+        syncQueryResults$,
+        asyncQueryResults$,
+        (props, syncQueryResults, asyncQueryResults) => {
+          debugger;
+          return {
+            ...props,
+            ...syncQueryResults,
+            ...asyncQueryResults,
+          };
+        },
+      );
+    }
+  ),
+  lifecycle({
+    componentWillMount() {
+      // const { __routes: routes, queries } = this.props;
+      // const [asyncQueries, syncQueries] = pipe(
+      //   mapValues(query => query(routes)),
+      //   toPairs,
+      //   partition(([name, query]) => isPromise(query)),
+      //   map(fromPairs),
+      // )(queries);
+      debugger;
+    },
+  }),
 );

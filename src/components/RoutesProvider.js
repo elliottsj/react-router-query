@@ -1,10 +1,11 @@
 import { PropTypes } from 'react';
+import { createRoutes } from 'react-router';
 import { withContext } from 'recompose';
 import Children from './Children';
 
 export default withContext(
   {
-    routes: PropTypes.object.isRequired,
+    __routes: PropTypes.arrayOf(PropTypes.object).isRequired,
   },
-  ({ routes }) => ({ routes }),
+  ({ routes }) => ({ __routes: createRoutes(routes) }),
 )(Children);

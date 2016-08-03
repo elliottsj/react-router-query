@@ -1,6 +1,9 @@
 // @flow
 
+import prettyFormat from 'pretty-format';
+
 import {
+  mount,
   shallow,
 } from 'enzyme';
 import React from 'react';
@@ -633,26 +636,57 @@ describe('query', () => {
   });
 });
 
-xdescribe('withQuery', () => {
+fdescribe('withQuery', () => {
   it('creates a higher-order component, with props corresponding to queries', () => {
-    const AppWithQuery = withQuery({
+    const queries = {
       pages: query('/'),
-    })(App);
+      inbox: query('/inbox'),
+    };
+    const AppWithQuery = withQuery(queries)(App);
 
-    const routes = (
-      <Route path="/" component={AppWithQuery}>
-        <IndexRoute component={Dashboard} />
-        <Route path="about" component={About} />
-        <Route path="inbox" component={Inbox}>
-          <IndexRoute component={Messages} />
-          <Route path="settings" component={Settings} />
-          <Redirect from="messages/:id" to="/messages/:id" />
-        </Route>
-        <Route component={Inbox}>
-          <Route path="messages/:id" component={Message} />
-        </Route>
-      </Route>
-    );
+    const routes = {
+      path: '/',
+      component: AppWithQuery,
+      indexRoute: {
+        component: Dashboard,
+      },
+      childRoutes: [
+        {
+          path: 'about',
+          getComponent: asyncGetter(About),
+        },
+        {
+          path: 'inbox',
+          component: Inbox,
+          indexRoute: {
+            component: Messages,
+          },
+          childRoutes: [
+            {
+              path: 'settings',
+              component: Settings,
+            },
+            {
+              from: 'messages/:id',
+              to: '/messages/:id',
+              path: 'messages/:id',
+              onEnter(nextState, replace) {
+                replace(`/messages/${nextState.params.id}`);
+              },
+            },
+          ],
+        },
+        {
+          component: Inbox,
+          childRoutes: [
+            {
+              path: 'messages/:id',
+              component: Message,
+            },
+          ],
+        },
+      ],
+    };
 
     function Root() {
       return (
@@ -662,9 +696,84 @@ xdescribe('withQuery', () => {
       );
     }
 
-    const wrapper = shallow(<Root />);
-    expect(wrapper.some(AppWithQuery)).toBe(true);
-    const app = wrapper.find(AppWithQuery);
-    // TODO: assert props
+    const wrapper = mount(<Root />);
+    const app = wrapper.find('lifecycle(App)');
+    expect(app.length).toBe(1);
+    const props = app.props();
+    expect(props.__routes).toEqual([
+      {
+        path: '/',
+        component: AppWithQuery,
+        indexRoute: {
+          component: Dashboard,
+        },
+        childRoutes: [
+          {
+            path: 'about',
+            getComponent: jasmine.any(Function),
+          },
+          {
+            path: 'inbox',
+            component: Inbox,
+            indexRoute: {
+              component: Messages,
+            },
+            childRoutes: [
+              {
+                path: 'settings',
+                component: Settings,
+              },
+              {
+                path: 'messages/:id',
+                from: 'messages/:id',
+                to: '/messages/:id',
+                onEnter: jasmine.any(Function),
+              },
+            ],
+          },
+          {
+            component: Inbox,
+            childRoutes: [
+              {
+                path: 'messages/:id',
+                component: Message,
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    expect(props.queries).toBe(queries);
+    expect(props.pages).toBeUndefined();
+    expect(props.inbox).toEqual([
+      {
+        component: Messages,
+        fullPath: '/inbox',
+        parents: [
+          jasmine.objectContaining({ component: AppWithQuery }),
+          jasmine.objectContaining({ component: Inbox }),
+        ],
+      },
+      {
+        path: 'settings',
+        component: Settings,
+        fullPath: '/inbox/settings',
+        parents: [
+          jasmine.objectContaining({ component: AppWithQuery }),
+          jasmine.objectContaining({ component: Inbox }),
+        ],
+      },
+      {
+        from: 'messages/:id',
+        to: '/messages/:id',
+        path: 'messages/:id',
+        onEnter: jasmine.any(Function),
+        fullPath: '/inbox/messages/:id',
+        parents: [
+          jasmine.objectContaining({ component: AppWithQuery }),
+          jasmine.objectContaining({ component: Inbox }),
+        ],
+      },
+    ]);
   });
 });
