@@ -11,7 +11,6 @@ export { default as RoutesProvider } from './components/RoutesProvider';
 export { default as withQuery } from './components/withQuery';
 
 export const isEmptyArray = (array: any[]) => Array.isArray(array) && array.length === 0;
-export const omitUndefinedValues = pickBy(value => value !== undefined);
 
 /**
  * Return true iff the given route path matches the given path prefix.
@@ -46,31 +45,34 @@ async function synchronizeRoute(filterChildRoutes, pathprefix, route: PlainRoute
   }
   const component: ReactClass = (
     route.component ||
-    route.getComponent && await pify(route.getComponent)(/* nextState: */ null)
+    (route.getComponent && await pify(route.getComponent)(/* nextState: */ null))
   );
   const components: { [key: string]: ReactClass } = (
     route.components ||
-    route.getComponents && await pify(route.getComponents)(/* nextState: */ null)
+    (route.getComponents && await pify(route.getComponents)(/* nextState: */ null))
   );
   const indexRoute: SyncRoute = await synchronizeRoute(
     filterChildRoutes,
     pathprefix + route.path,
     route.indexRoute ||
-    route.getIndexRoute && await pify(route.getIndexRoute)(/* partialNextState: */ null)
+    (route.getIndexRoute && await pify(route.getIndexRoute)(/* partialNextState: */ null))
   );
   const childRoutes: PlainRoute[] = await synchronizeRoutes(
     filterChildRoutes,
     pathprefix + route.path,
     route.childRoutes ||
-    route.getChildRoutes && await pify(route.getChildRoutes)(/* partialNextState: */ null)
+    (route.getChildRoutes && await pify(route.getChildRoutes)(/* partialNextState: */ null))
   );
-  return omitUndefinedValues({
+  return {
     ...route,
     component,
     components,
     indexRoute,
-    childRoutes: isEmptyArray(childRoutes) ? undefined : childRoutes,
-  });
+    ...(isEmptyArray(childRoutes)
+      ? {}
+      : { childRoutes }
+    ),
+  };
 }
 
 /**
@@ -81,7 +83,7 @@ async function synchronizeRoute(filterChildRoutes, pathprefix, route: PlainRoute
  *  - getComponents  -> components
  *  - getIndexRoute  -> indexRoute
  *
- * @param prefix Only routes starting with this prefix will be returned
+ * @param prefix Only routes matching this prefix will be returned
  * @param routes The list of PlainRoutes
  */
 async function synchronizeRoutes(
@@ -107,8 +109,7 @@ export async function synchronize(prefix = '', routes): SyncRoute[] {
 
 function isRouteSynchronous(filterPrefix, parentPrefix, route) {
   const fullPath = joinPaths(parentPrefix, route.path || '');
-  return (
-    !matchesPrefix(filterPrefix, fullPath) ||
+  return !matchesPrefix(filterPrefix, fullPath) || (
     !route.getComponent &&
     !route.getComponents &&
     !route.getIndexRoute &&

@@ -2,7 +2,6 @@
 
 import {
   isSynchronous,
-  omitUndefinedValues,
   synchronize,
 } from '../synchronize';
 
@@ -19,17 +18,6 @@ import {
   routesPlain,
   routesPlainPartialAsync,
 } from '../__test_fixtures__';
-
-describe('omitUndefinedValues', () => {
-  it('omits undefined object values', () => {
-    expect(omitUndefinedValues({
-      foo: 'bar',
-      baz: undefined,
-    })).toEqual({
-      foo: 'bar',
-    });
-  });
-});
 
 describe('isSynchronous', () => {
   it('returns true if a route is synchronous, given one route', () => {
