@@ -13,6 +13,11 @@
     "no-underscore-dangle": 0,
     "no-use-before-define": 0,
     "flow-vars/define-flow-type": 1,
-    "flow-vars/use-flow-type": 1
+    "flow-vars/use-flow-type": 1,
+    "import/no-extraneous-dependencies": [2, {
+      "devDependencies": true,
+      "optionalDependencies": true,
+      "peerDependencies": true
+    }]
   }
 }
