@@ -1,12 +1,10 @@
 // @flow
 
-import prettyFormat from 'pretty-format';
-
+import delay from 'delay';
 import {
   mount,
-  shallow,
 } from 'enzyme';
-import React from 'react';
+import React, { Component } from 'react';
 import {
   createMemoryHistory,
   IndexRoute,
@@ -24,8 +22,10 @@ import {
   withQuery,
 } from '..';
 
-function App() {
-  return <div>App</div>;
+class App extends Component { // eslint-disable-line react/prefer-stateless-function
+  render() {
+    return <div>App</div>;
+  }
 }
 function Dashboard() {
   return <div>Dashboard</div>;
@@ -636,8 +636,9 @@ describe('query', () => {
   });
 });
 
-fdescribe('withQuery', () => {
-  it('creates a higher-order component, with props corresponding to queries', () => {
+describe('withQuery', () => {
+  it('creates a higher-order component, with props corresponding to queries', async () => {
+    jest.useRealTimers();
     const queries = {
       pages: query('/'),
       inbox: query('/inbox'),
@@ -697,10 +698,9 @@ fdescribe('withQuery', () => {
     }
 
     const wrapper = mount(<Root />);
-    const app = wrapper.find('lifecycle(App)');
+    const app = wrapper.find(App);
     expect(app.length).toBe(1);
-    const props = app.props();
-    expect(props.__routes).toEqual([
+    expect(app.prop('__routes')).toEqual([
       {
         path: '/',
         component: AppWithQuery,
@@ -743,9 +743,9 @@ fdescribe('withQuery', () => {
         ],
       },
     ]);
-    expect(props.queries).toBe(queries);
-    expect(props.pages).toBeUndefined();
-    expect(props.inbox).toEqual([
+    expect(app.prop('queries')).toBe(queries);
+    expect(app.prop('pages')).toBeUndefined();
+    expect(app.prop('inbox')).toEqual([
       {
         component: Messages,
         fullPath: '/inbox',
@@ -769,6 +769,60 @@ fdescribe('withQuery', () => {
         path: 'messages/:id',
         onEnter: jasmine.any(Function),
         fullPath: '/inbox/messages/:id',
+        parents: [
+          jasmine.objectContaining({ component: AppWithQuery }),
+          jasmine.objectContaining({ component: Inbox }),
+        ],
+      },
+    ]);
+
+    await delay(100);
+
+    expect(app.prop('pages')).toEqual([
+      {
+        fullPath: '/',
+        component: Dashboard,
+        parents: [jasmine.objectContaining({ component: AppWithQuery })],
+      },
+      {
+        path: 'about',
+        fullPath: '/about',
+        component: About,
+        getComponent: jasmine.any(Function),
+        parents: [jasmine.objectContaining({ component: AppWithQuery })],
+      },
+      {
+        fullPath: '/inbox',
+        component: Messages,
+        parents: [
+          jasmine.objectContaining({ component: AppWithQuery }),
+          jasmine.objectContaining({ component: Inbox }),
+        ],
+      },
+      {
+        path: 'settings',
+        fullPath: '/inbox/settings',
+        component: Settings,
+        parents: [
+          jasmine.objectContaining({ component: AppWithQuery }),
+          jasmine.objectContaining({ component: Inbox }),
+        ],
+      },
+      {
+        from: 'messages/:id',
+        to: '/messages/:id',
+        path: 'messages/:id',
+        fullPath: '/inbox/messages/:id',
+        onEnter: jasmine.any(Function),
+        parents: [
+          jasmine.objectContaining({ component: AppWithQuery }),
+          jasmine.objectContaining({ component: Inbox }),
+        ],
+      },
+      {
+        path: 'messages/:id',
+        fullPath: '/messages/:id',
+        component: Message,
         parents: [
           jasmine.objectContaining({ component: AppWithQuery }),
           jasmine.objectContaining({ component: Inbox }),

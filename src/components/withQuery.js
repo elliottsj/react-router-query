@@ -33,7 +33,12 @@ export default queries => compose(
       const asyncQueryResults$ = Rx.Observable.of({}).concat(queries$.flatMap(
         pipe(
           pickBy(isPromise),
-          mapValues((routesPromise, name) => routesPromise.then(routes => [name, routes])),
+          toPairs,
+          map(([name, routesPromise]) => {
+            return routesPromise.then(routes => {
+              return [name, routes];
+            });
+          }),
           promises => Promise.all(promises).then(fromPairs)
         )
       ));
@@ -41,7 +46,6 @@ export default queries => compose(
         syncQueryResults$,
         asyncQueryResults$,
         (props, syncQueryResults, asyncQueryResults) => {
-          debugger;
           return {
             ...props,
             ...syncQueryResults,
@@ -51,16 +55,4 @@ export default queries => compose(
       );
     }
   ),
-  lifecycle({
-    componentWillMount() {
-      // const { __routes: routes, queries } = this.props;
-      // const [asyncQueries, syncQueries] = pipe(
-      //   mapValues(query => query(routes)),
-      //   toPairs,
-      //   partition(([name, query]) => isPromise(query)),
-      //   map(fromPairs),
-      // )(queries);
-      debugger;
-    },
-  }),
 );
