@@ -1,6 +1,5 @@
 // @flow
 
-import curry from 'lodash/fp/curry';
 import every from 'lodash/fp/every';
 import pickBy from 'lodash/fp/pickBy';
 import {
@@ -28,6 +27,15 @@ function matchesPrefix(prefix: string, routePath: string) {
   return prefix.startsWith(routePath) || routePath.startsWith(prefix);
 }
 
+/**
+ * Join two '/'-delimited paths, removing duplicate '/'s at the point of joining.
+ *
+ * @example
+ *   joinPaths('/', 'inbox')              // '/inbox'
+ *   joinPaths('/', '/inbox')             // '/inbox'
+ *   joinPaths('inbox', 'messages')       // 'inbox/messages'
+ *   joinPaths('/inbox/messages/', '/1/') // '/inbox/messages/1/'
+ */
 function joinPaths(path1, path2) {
   return `${path1.replace(/.\/$/, '')}/${path2.replace(/^\//, '')}`;
 }
@@ -97,7 +105,7 @@ export async function synchronize(prefix = '', routes): SyncRoute[] {
   );
 }
 
-function _isRouteSynchronous(filterPrefix, parentPrefix, route) {
+function isRouteSynchronous(filterPrefix, parentPrefix, route) {
   const fullPath = joinPaths(parentPrefix, route.path || '');
   return (
     !matchesPrefix(filterPrefix, fullPath) ||
@@ -105,15 +113,16 @@ function _isRouteSynchronous(filterPrefix, parentPrefix, route) {
     !route.getComponents &&
     !route.getIndexRoute &&
     !route.getChildRoutes &&
-    (!route.childRoutes || every(isRouteSynchronous(filterPrefix, fullPath), route.childRoutes))
+    (!route.childRoutes || every(
+      isRouteSynchronous.bind(null, filterPrefix, fullPath),
+      route.childRoutes
+    ))
   );
 }
 
-const isRouteSynchronous = curry(_isRouteSynchronous);
-
 export function isSynchronous(prefix: string = '', routes: PlainRoute | PlainRoute[]) {
   if (Array.isArray(routes)) {
-    return every(isRouteSynchronous(prefix, ''), routes);
+    return every(isRouteSynchronous.bind(null, prefix, ''), routes);
   }
   return isRouteSynchronous(prefix, '', routes);
 }
