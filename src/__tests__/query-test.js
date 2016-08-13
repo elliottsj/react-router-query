@@ -1,7 +1,5 @@
 // @flow
 
-import pf from 'pretty-format';
-
 import delay from 'delay';
 import {
   mount,
