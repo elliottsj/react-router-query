@@ -1,3 +1,5 @@
+// @flow
+
 import { Component, PropTypes } from 'react';
 
 export default class QueryContext extends Component {

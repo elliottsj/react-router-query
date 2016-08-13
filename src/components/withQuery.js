@@ -1,3 +1,5 @@
+// @flow
+
 import Rx from 'rxjs/Rx';
 import compose from 'lodash/fp/compose';
 import filter from 'lodash/fp/filter';

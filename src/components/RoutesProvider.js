@@ -1,3 +1,5 @@
+// @flow
+
 import { PropTypes } from 'react';
 import { createRoutes } from 'react-router';
 import { withContext } from 'recompose';
