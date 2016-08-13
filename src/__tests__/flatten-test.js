@@ -9,12 +9,12 @@ import {
   Message,
   Messages,
   Settings,
-  routesSync,
+  routesPlain,
 } from '../__test_fixtures__';
 
 describe('flatten', () => {
   it('flattens routes', async () => {
-    const result = flatten(routesSync);
+    const result = flatten(routesPlain);
     expect(result).toEqual([
       {
         fullPath: '/',

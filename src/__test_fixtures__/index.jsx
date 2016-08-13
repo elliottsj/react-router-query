@@ -46,51 +46,54 @@ export const routesJsx = (
   </Route>
 );
 
-export const routesPlain = {
-  path: '/',
-  component: App,
-  indexRoute: {
-    component: Dashboard,
-  },
-  childRoutes: [
-    {
-      path: 'about',
-      component: About,
+export const routesPlain = [
+  {
+    path: '/',
+    component: App,
+    indexRoute: {
+      component: Dashboard,
     },
-    {
-      path: 'inbox',
-      component: Inbox,
-      indexRoute: {
-        component: Messages,
+    childRoutes: [
+      {
+        path: 'about',
+        component: About,
       },
-      childRoutes: [
-        {
-          path: 'settings',
-          component: Settings,
+      {
+        path: 'inbox',
+        component: Inbox,
+        indexRoute: {
+          component: Messages,
         },
-        {
-          from: 'messages/:id',
-          to: '/messages/:id',
-          path: 'messages/:id',
-          onEnter(nextState, replace) {
-            replace(`/messages/${nextState.params.id}`);
+        childRoutes: [
+          {
+            path: 'settings',
+            component: Settings,
           },
-        },
-      ],
-    },
-    {
-      component: Inbox,
-      childRoutes: [
-        {
-          path: 'messages/:id',
-          component: Message,
-        },
-      ],
-    },
-  ],
-};
+          {
+            from: 'messages/:id',
+            to: '/messages/:id',
+            path: 'messages/:id',
+            onEnter(nextState, replace) {
+              replace(`/messages/${nextState.params.id}`);
+            },
+          },
+        ],
+      },
+      {
+        component: Inbox,
+        childRoutes: [
+          {
+            path: 'messages/:id',
+            component: Message,
+          },
+        ],
+      },
+    ],
+  }
+];
 
-export const asyncGetter = (value) => (nextState, cb) => setImmediate(() => cb(null, value));
+export const asyncGetter =
+  (value: any) => (nextState: any, cb: CPSCallback<any>) => setImmediate(() => cb(null, value));
 
 export const routesPlainPartialAsync = {
   path: '/',
@@ -135,49 +138,3 @@ export const routesPlainPartialAsync = {
     },
   ]),
 };
-
-export const routesSync = [
-  {
-    path: '/',
-    component: App,
-    indexRoute: {
-      component: Dashboard,
-    },
-    childRoutes: [
-      {
-        path: 'about',
-        component: About,
-      },
-      {
-        path: 'inbox',
-        component: Inbox,
-        indexRoute: {
-          component: Messages,
-        },
-        childRoutes: [
-          {
-            component: Settings,
-            path: 'settings',
-          },
-          {
-            from: 'messages/:id',
-            onEnter(nextState, replace) {
-              replace(`/messages/${nextState.params.id}`);
-            },
-            path: 'messages/:id',
-            to: '/messages/:id',
-          },
-        ],
-      },
-      {
-        component: Inbox,
-        childRoutes: [
-          {
-            path: 'messages/:id',
-            component: Message,
-          },
-        ],
-      },
-    ],
-  },
-];
