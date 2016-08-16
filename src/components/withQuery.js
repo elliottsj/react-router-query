@@ -26,34 +26,31 @@ export default queries => compose(
   mapPropsStream(
     props$ => {
       const rxjsProps$ = Rx.Observable.from(props$);
+      // Instantiate queries
       const queries$: Observable<QuerySet> = rxjsProps$.map(
         ({ __routes, queries }) => mapValues(query => query(__routes), queries),
       );
+      // Select synchronous query results
       const syncQueryResults$ = queries$.map(
         pickBy(route => !isPromise(route))
       );
+      // Select asynchronous query results
       const asyncQueryResults$ = Rx.Observable.of({}).concat(queries$.flatMap(
         pipe(
           pickBy(isPromise),
           toPairs,
-          map(([name, routesPromise]) => {
-            return routesPromise.then(routes => {
-              return [name, routes];
-            });
-          }),
+          map(([name, routesPromise]) => routesPromise.then(routes => [name, routes])),
           promises => Promise.all(promises).then(fromPairs)
         )
       ));
       return rxjsProps$.combineLatest(
         syncQueryResults$,
         asyncQueryResults$,
-        (props, syncQueryResults, asyncQueryResults) => {
-          return {
-            ...props,
-            ...syncQueryResults,
-            ...asyncQueryResults,
-          };
-        },
+        (props, syncQueryResults, asyncQueryResults) => ({
+          ...props,
+          ...syncQueryResults,
+          ...asyncQueryResults,
+        }),
       );
     }
   ),

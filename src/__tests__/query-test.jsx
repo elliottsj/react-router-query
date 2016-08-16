@@ -4,7 +4,7 @@ import delay from 'delay';
 import {
   mount,
 } from 'enzyme';
-import React, { Component } from 'react';
+import React from 'react';
 import {
   createMemoryHistory,
   Router,
