@@ -1,34 +1,59 @@
 // @flow
 
-import React, { Component } from 'react';
+import React, { Component, PropTypes } from 'react';
 import {
   IndexRoute,
   Redirect,
   Route,
 } from 'react-router';
 
-export class App extends Component { // eslint-disable-line react/prefer-stateless-function
+// Use class component since recompose's
+// `isReferentiallyTransparentFunctionComponent`
+// (https://github.com/acdlite/recompose/blob/faaafb02ecafbad3082a1f8141e4cf0354281c7e/src/packages/recompose/isReferentiallyTransparentFunctionComponent.js)
+// eagerly evaluates functional components, preventing us from finding their instances in enzyme's
+// wrapper:
+// https://github.com/acdlite/recompose/blob/faaafb02ecafbad3082a1f8141e4cf0354281c7e/src/packages/recompose/utils/createEagerElementUtil.js
+/* eslint-disable react/no-multi-comp,react/prefer-stateless-function */
+export class App extends Component {
   render() {
-    return <div>App</div>;
+    return (
+      <div>
+        <h1>App</h1>
+        {this.props.children}
+      </div>
+    );
   }
 }
+App.propTypes = {
+  children: PropTypes.node,
+};
 export function Dashboard() {
   return <div>Dashboard</div>;
 }
 export function About() {
   return <div>About</div>;
 }
-export function Inbox() {
-  return <div>Inbox</div>;
+export function Inbox({ children }) {
+  return (
+    <div>
+      <h1>Inbox</h1>
+      {children}
+    </div>
+  );
 }
+Inbox.propTypes = {
+  children: PropTypes.node,
+};
 export function Message() {
   return <div>Message</div>;
 }
 export function Messages() {
   return <div>Messages</div>;
 }
-export function Settings() {
-  return <div>Settings</div>;
+export class Settings extends Component {
+  render() {
+    return <div>Settings</div>;
+  }
 }
 
 export const routesJsx = (
