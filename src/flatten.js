@@ -32,5 +32,7 @@ export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): Flat
 /**
  * Flatten synchronous routes into an array of `FlatRoute`s
  */
-export const flatten: (routes: SyncRoute[]) => FlatRoute[] =
+const flatten: (routes: SyncRoute[]) => FlatRoute[] =
   flatMap(route => flattenRoute([], route));
+
+export default flatten;

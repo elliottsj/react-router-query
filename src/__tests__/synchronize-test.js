@@ -1,8 +1,8 @@
 // @flow
 
-import {
-  isSynchronous,
-  synchronize,
+import synchronize, {
+  synchronizeCPSFunction,
+  synchronizeRoute,
 } from '../synchronize';
 
 import {
@@ -19,191 +19,338 @@ import {
   routesPlainPartialAsync,
 } from '../__test_fixtures__';
 
-describe('isSynchronous', () => {
-  it('returns true if a route is synchronous, given one route', () => {
+describe('synchronizeCPSFunction', () => {
+  it(
+    'creates a CPS function which resolves with the memoized result of the given CPS function',
+    () => new Promise((resolve) => {
+      let done = false;
+      function fn(cb) {
+        setImmediate(() => cb(null, 'hello'));
+      }
+      synchronizeCPSFunction(fn)((error1, syncFn) => {
+        expect(error1).toBe(null);
+        expect(syncFn).toEqual(jasmine.any(Function));
+        let sync = false;
+        syncFn((error2, result) => {
+          expect(error2).toBe(null);
+          expect(result).toBe('hello');
+          sync = true;
+        });
+        expect(sync).toBe(true);
+        done = true;
+        resolve();
+      });
+      expect(done).toBe(false);
+    })
+  );
+});
+
+describe('synchronizeRoute', () => {
+  it(
+    'synchronously resolves with a shallowly-equal route if the given route has no async getters',
+    () => {
+      let done = false;
+      const route = {
+        path: '/',
+        component: App,
+      };
+      synchronizeRoute(
+        '',
+        '',
+        route,
+        (error: ?Error, syncRoute: SyncRoute) => {
+          expect(syncRoute).toEqual({
+            path: '/',
+            component: App,
+          });
+          done = true;
+        }
+      );
+      expect(done).toBe(true);
+    },
+  );
+
+  it(
+    'synchronously resolves with an equivalent route if the given route\'s async getters' +
+    'resolve synchronously',
+    () => {
+      let done = false;
+      const route = {
+        path: '/',
+        getComponent(nextState, cb) {
+          cb(null, App);
+        },
+      };
+      synchronizeRoute(
+        '',
+        '',
+        route,
+        (error0: ?Error, syncRoute: SyncRoute) => {
+          expect(error0).toBe(null);
+          expect(syncRoute).toEqual({
+            path: '/',
+            getComponent: jasmine.any(Function),
+          });
+          syncRoute.getComponent(null, (error1, component) => {
+            expect(error1).toBe(null);
+            expect(component).toBe(App);
+            done = true;
+          });
+        }
+      );
+      expect(done).toBe(true);
+    },
+  );
+
+  it(
+    'asynchronously resolves with a synchronous route if the given route\'s async getters' +
+    'resolve asynchronously',
+    () => new Promise((resolve) => {
+      let done = false;
+      const route = {
+        path: '/',
+        getComponent(nextState, cb) {
+          setImmediate(() => cb(null, App));
+        },
+      };
+      synchronizeRoute(
+        '',
+        '',
+        route,
+        (error0: ?Error, syncRoute: SyncRoute) => {
+          expect(error0).toBe(null);
+          expect(syncRoute).toEqual({
+            path: '/',
+            getComponent: jasmine.any(Function),
+          });
+          let sync = false;
+          syncRoute.getComponent(null, (error1, component) => {
+            expect(error1).toBe(null);
+            expect(component).toBe(App);
+            sync = true;
+          });
+          expect(sync).toBe(true);
+          done = true;
+          resolve();
+        }
+      );
+      expect(done).toBe(false);
+    }),
+  );
+
+  it('works with `getIndexRoute`', () => new Promise((resolve) => {
+    let done = false;
     const route = {
       path: '/',
       component: App,
+      getIndexRoute(partialNextState, cb) {
+        cb(null, {
+          component: Dashboard,
+        });
+      },
     };
-    expect(isSynchronous('', route)).toBe(true);
-  });
+    synchronizeRoute(
+      '',
+      '',
+      route,
+      (error0: ?Error, syncRoute: SyncRoute) => {
+        expect(error0).toBe(null);
+        expect(syncRoute).toEqual({
+          path: '/',
+          component: App,
+          getIndexRoute: jasmine.any(Function),
+        });
+        let sync = false;
+        syncRoute.getIndexRoute(null, (error1, indexRoute) => {
+          expect(error1).toBe(null);
+          expect(indexRoute).toEqual({
+            component: Dashboard,
+          });
+          sync = true;
+        });
+        expect(sync).toBe(true);
+        done = true;
+        resolve();
+      }
+    );
+    expect(done).toBe(false);
+  }));
 
-  it('returns false if a route is asynchronous, given one route', () => {
+  it('works with `getChildRoutes`', () => new Promise((resolve) => {
+    let done = false;
     const route = {
       path: '/',
-      getComponent: asyncGetter(App),
-    };
-    expect(isSynchronous('', route)).toBe(false);
-  });
-
-  it('returns true if all routes are synchronous, given many routes', () => {
-    const routes = [
-      {
-        path: '/',
-        component: App,
-        childRoutes: [
+      component: App,
+      getChildRoutes(partialNextState, cb) {
+        cb(null, [
           {
-            path: 'about',
             component: About,
           },
-        ],
-      },
-      {
-        path: '/settings',
-        component: Settings,
-      },
-    ];
-    expect(isSynchronous('', routes)).toBe(true);
-  });
-
-  it('returns false if one route is asynchronous, given many routes', () => {
-    const routes = [
-      {
-        path: '/',
-        component: App,
-        childRoutes: [
           {
-            path: 'about',
-            getComponent: asyncGetter(About),
+            component: Inbox,
           },
-        ],
+        ]);
       },
-      {
-        path: '/settings',
-        component: Settings,
-      },
-    ];
-    expect(isSynchronous('', routes)).toBe(false);
-  });
-
-  it('checks only routes that match the given prefix', () => {
-    const routes = [
-      {
-        path: '/',
-        component: App,
-        childRoutes: [
-          {
-            path: 'about',
-            getComponent: asyncGetter(About),
-          },
-        ],
-      },
-      {
-        path: '/settings',
-        component: Settings,
-      },
-    ];
-    expect(isSynchronous('/settings', routes)).toBe(true);
-  });
+    };
+    synchronizeRoute(
+      '',
+      '',
+      route,
+      (error0: ?Error, syncRoute: SyncRoute) => {
+        expect(error0).toBe(null);
+        expect(syncRoute).toEqual({
+          path: '/',
+          component: App,
+          getChildRoutes: jasmine.any(Function),
+        });
+        let sync = false;
+        syncRoute.getChildRoutes(null, (error1, childRoutes) => {
+          expect(error1).toBe(null);
+          expect(childRoutes).toEqual([
+            {
+              component: About,
+            },
+            {
+              component: Inbox,
+            },
+          ]);
+          sync = true;
+        });
+        expect(sync).toBe(true);
+        done = true;
+        resolve();
+      }
+    );
+    expect(done).toBe(false);
+  }));
 });
 
 describe('synchronize', () => {
-  it('synchronizes synchronous JSX routes ', async () => {
-    const result = await synchronize('/', routesJsx);
-    expect(result).toEqual([
-      {
-        path: '/',
-        component: App,
-        indexRoute: {
-          component: Dashboard,
-        },
-        childRoutes: [
-          {
-            path: 'about',
-            component: About,
+  it('synchronizes synchronous JSX routes ', () => {
+    let done = false;
+    synchronize('/', routesJsx, (error, result) => {
+      expect(error).toBe(null);
+      expect(result).toEqual([
+        {
+          path: '/',
+          component: App,
+          indexRoute: {
+            component: Dashboard,
           },
-          {
-            path: 'inbox',
-            component: Inbox,
-            indexRoute: {
-              component: Messages,
+          childRoutes: [
+            {
+              path: 'about',
+              component: About,
             },
-            childRoutes: [
-              {
-                path: 'settings',
-                component: Settings,
+            {
+              path: 'inbox',
+              component: Inbox,
+              indexRoute: {
+                component: Messages,
               },
-              {
-                from: 'messages/:id',
-                to: '/messages/:id',
-                path: 'messages/:id',
-                onEnter: jasmine.any(Function),
-              },
-            ],
-          },
-          {
-            component: Inbox,
-            childRoutes: [
-              {
-                path: 'messages/:id',
-                component: Message,
-              },
-            ],
-          },
-        ],
-      },
-    ]);
+              childRoutes: [
+                {
+                  path: 'settings',
+                  component: Settings,
+                },
+                {
+                  from: 'messages/:id',
+                  to: '/messages/:id',
+                  path: 'messages/:id',
+                  onEnter: jasmine.any(Function),
+                },
+              ],
+            },
+            {
+              component: Inbox,
+              childRoutes: [
+                {
+                  path: 'messages/:id',
+                  component: Message,
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+      done = true;
+    });
+    expect(done).toBe(true);
   });
 
-  it('synchronizes synchronous plain routes ', async () => {
-    const result = await synchronize('/', routesPlain);
-    expect(result).toEqual([
-      {
-        path: '/',
-        component: App,
-        indexRoute: {
-          component: Dashboard,
-        },
-        childRoutes: [
-          {
-            path: 'about',
-            component: About,
+  it('synchronizes synchronous plain routes ', () => {
+    let done = false;
+    synchronize('/', routesPlain, (error, result) => {
+      expect(error).toBe(null);
+      expect(result).toEqual([
+        {
+          path: '/',
+          component: App,
+          indexRoute: {
+            component: Dashboard,
           },
-          {
-            path: 'inbox',
-            component: Inbox,
-            indexRoute: {
-              component: Messages,
+          childRoutes: [
+            {
+              path: 'about',
+              component: About,
             },
-            childRoutes: [
-              {
-                path: 'settings',
-                component: Settings,
+            {
+              path: 'inbox',
+              component: Inbox,
+              indexRoute: {
+                component: Messages,
               },
-              {
-                from: 'messages/:id',
-                to: '/messages/:id',
-                path: 'messages/:id',
-                onEnter: jasmine.any(Function),
-              },
-            ],
-          },
-          {
-            component: Inbox,
-            childRoutes: [
-              {
-                path: 'messages/:id',
-                component: Message,
-              },
-            ],
-          },
-        ],
-      },
-    ]);
+              childRoutes: [
+                {
+                  path: 'settings',
+                  component: Settings,
+                },
+                {
+                  from: 'messages/:id',
+                  to: '/messages/:id',
+                  path: 'messages/:id',
+                  onEnter: jasmine.any(Function),
+                },
+              ],
+            },
+            {
+              component: Inbox,
+              childRoutes: [
+                {
+                  path: 'messages/:id',
+                  component: Message,
+                },
+              ],
+            },
+          ],
+        },
+      ]);
+      done = true;
+    });
+    expect(done).toBe(true);
   });
 
-  it('synchronizes asynchronous plain routes ', async () => {
-    const result = await synchronize('/', routesPlainPartialAsync);
-    expect(result).toEqual([
-      {
-        path: '/',
-        getComponent: jasmine.any(Function),
-        getChildRoutes: jasmine.any(Function),
-        component: App,
-        indexRoute: {
-          component: Dashboard,
+  it('synchronizes asynchronous plain routes ', () => new Promise((resolve) => {
+    let done = false;
+    synchronize('/', routesPlainPartialAsync, (error0, result) => {
+      expect(error0).toBe(null);
+      expect(result).toEqual([
+        {
+          path: '/',
+          getComponent: jasmine.any(Function),
+          getChildRoutes: jasmine.any(Function),
+          indexRoute: {
+            component: Dashboard,
+          },
         },
-        childRoutes: [
+      ]);
+      result[0].getComponent(null, (error1, component) => {
+        expect(error1).toBe(null);
+        expect(component).toBe(App);
+      });
+      result[0].getChildRoutes(null, (error1, childRoutes0) => {
+        expect(error1).toBe(null);
+        expect(childRoutes0).toEqual([
           {
             path: 'about',
             component: About,
@@ -212,16 +359,10 @@ describe('synchronize', () => {
             path: 'inbox',
             getComponent: jasmine.any(Function),
             getIndexRoute: jasmine.any(Function),
-            component: Inbox,
-            indexRoute: {
-              getComponent: jasmine.any(Function),
-              component: Messages,
-            },
             childRoutes: [
               {
                 path: 'settings',
                 getComponent: jasmine.any(Function),
-                component: Settings,
               },
               {
                 from: 'messages/:id',
@@ -234,56 +375,119 @@ describe('synchronize', () => {
           {
             component: Inbox,
             getChildRoutes: jasmine.any(Function),
-            childRoutes: [
-              {
-                path: 'messages/:id',
-                getComponent: jasmine.any(Function),
-                component: Message,
-              },
-            ],
           },
-        ],
-      },
-    ]);
-  });
-
-  it('synchronizes and includes only routes that match the given prefix', async () => {
-    const result = await synchronize('/inbox', routesPlainPartialAsync);
-    expect(result).toEqual([
-      {
-        path: '/',
-        getComponent: jasmine.any(Function),
-        getChildRoutes: jasmine.any(Function),
-        component: App,
-        indexRoute: {
-          component: Dashboard,
-        },
-        childRoutes: [
-          {
-            path: 'inbox',
+        ]);
+        childRoutes0[1].getComponent(null, (error2, component) => {
+          expect(error2).toBe(null);
+          expect(component).toBe(Inbox);
+        });
+        childRoutes0[1].getIndexRoute(null, (error2, indexRoute) => {
+          expect(error2).toBe(null);
+          expect(indexRoute).toEqual({
             getComponent: jasmine.any(Function),
-            getIndexRoute: jasmine.any(Function),
-            component: Inbox,
-            indexRoute: {
+          });
+          indexRoute.getComponent(null, (error3, component) => {
+            expect(error3).toBe(null);
+            expect(component).toBe(Messages);
+          });
+        });
+        childRoutes0[1].childRoutes[0].getComponent(null, (error2, component) => {
+          expect(error2).toBe(null);
+          expect(component).toBe(Settings);
+        });
+        childRoutes0[2].getChildRoutes(null, (error2, childRoutes1) => {
+          expect(error2).toBe(null);
+          expect(childRoutes1).toEqual([
+            {
+              path: 'messages/:id',
               getComponent: jasmine.any(Function),
-              component: Messages,
             },
-            childRoutes: [
-              {
-                path: 'settings',
-                getComponent: jasmine.any(Function),
-                component: Settings,
-              },
-              {
-                from: 'messages/:id',
-                to: '/messages/:id',
-                path: 'messages/:id',
-                onEnter: jasmine.any(Function),
-              },
-            ],
+          ]);
+          childRoutes1[0].getComponent(null, (error, component) => {
+            expect(error).toBe(null);
+            expect(component).toBe(Message);
+          });
+        });
+      });
+      done = true;
+      resolve();
+    });
+    expect(done).toBe(false);
+  }));
+
+  it(
+    'synchronizes and includes only routes that match the given prefix',
+    () => new Promise((resolve) => {
+      let done = false;
+      synchronize('/inbox', routesPlainPartialAsync, (error0, result) => {
+        expect(error0).toBe(null);
+        expect(result).toEqual([
+          {
+            path: '/',
+            getComponent: jasmine.any(Function),
+            getChildRoutes: jasmine.any(Function),
+            indexRoute: {
+              component: Dashboard,
+            },
           },
-        ],
-      },
-    ]);
-  });
+        ]);
+        result[0].getComponent(null, (error1, component) => {
+          expect(error1).toBe(null);
+          expect(component).toBe(App);
+        });
+        result[0].getChildRoutes(null, (error1, childRoutes) => {
+          expect(error1).toBe(null);
+          expect(childRoutes).toEqual([
+            {
+              path: 'inbox',
+              getComponent: jasmine.any(Function),
+              getIndexRoute: jasmine.any(Function),
+              childRoutes: [
+                {
+                  path: 'settings',
+                  getComponent: jasmine.any(Function),
+                  // component: Settings,
+                },
+                {
+                  from: 'messages/:id',
+                  to: '/messages/:id',
+                  path: 'messages/:id',
+                  onEnter: jasmine.any(Function),
+                },
+              ],
+            },
+            {
+              component: Inbox,
+              getChildRoutes: jasmine.any(Function),
+            },
+          ]);
+          childRoutes[0].getComponent(null, (error2, component) => {
+            expect(error2).toBe(null);
+            expect(component).toBe(Inbox);
+          });
+          childRoutes[0].getIndexRoute(null, (error2, indexRoute) => {
+            expect(error2).toBe(null);
+            expect(indexRoute).toEqual({
+              getComponent: jasmine.any(Function),
+            });
+            indexRoute.getComponent(null, (error3, component) => {
+              expect(error3).toBe(null);
+              expect(component).toBe(Messages);
+            });
+          });
+          childRoutes[0].childRoutes[0].getComponent(null, (error, component) => {
+            expect(error).toBe(null);
+            expect(component).toBe(Settings);
+          });
+          childRoutes[1].getChildRoutes(null, (error, childRoutes1) => {
+            expect(error).toBe(null);
+            expect(childRoutes1).toEqual([]);
+          });
+        });
+        done = true;
+        resolve();
+      });
+      expect(done).toBe(false);
+    }),
+  );
 });

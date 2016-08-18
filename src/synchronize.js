@@ -1,11 +1,13 @@
 // @flow
 
+import asyncify from 'async/asyncify';
+import map from 'async/map';
+import parallel from 'async/parallel';
+import seq from 'async/seq';
 import every from 'lodash/fp/every';
-import pickBy from 'lodash/fp/pickBy';
 import {
   createRoutes,
 } from 'react-router';
-import pify from 'pify';
 
 export { default as RoutesProvider } from './components/RoutesProvider';
 export { default as withQuery } from './components/withQuery';
@@ -22,7 +24,7 @@ export const isEmptyArray = (array: any[]) => Array.isArray(array) && array.leng
  *   matchesPrefix('/inbox', '/')      // true
  *   matchesPrefix('/about', '/inbox') // false
  */
-function matchesPrefix(prefix: string, routePath: string) {
+function matchesPrefix(prefix: string, routePath: string): boolean {
   return prefix.startsWith(routePath) || routePath.startsWith(prefix);
 }
 
@@ -35,95 +37,105 @@ function matchesPrefix(prefix: string, routePath: string) {
  *   joinPaths('inbox', 'messages')       // 'inbox/messages'
  *   joinPaths('/inbox/messages/', '/1/') // '/inbox/messages/1/'
  */
-function joinPaths(path1, path2) {
-  return `${path1.replace(/.\/$/, '')}/${path2.replace(/^\//, '')}`;
-}
-
-async function synchronizeRoute(filterChildRoutes, pathprefix, route: PlainRoute): SyncRoute {
-  if (!route) {
-    return undefined;
-  }
-  const component: ReactClass = (
-    route.component ||
-    (route.getComponent && await pify(route.getComponent)(/* nextState: */ null))
-  );
-  const components: { [key: string]: ReactClass } = (
-    route.components ||
-    (route.getComponents && await pify(route.getComponents)(/* nextState: */ null))
-  );
-  const indexRoute: SyncRoute = await synchronizeRoute(
-    filterChildRoutes,
-    pathprefix + route.path,
-    route.indexRoute ||
-    (route.getIndexRoute && await pify(route.getIndexRoute)(/* partialNextState: */ null))
-  );
-  const childRoutes: PlainRoute[] = await synchronizeRoutes(
-    filterChildRoutes,
-    pathprefix + route.path,
-    route.childRoutes ||
-    (route.getChildRoutes && await pify(route.getChildRoutes)(/* partialNextState: */ null))
-  );
-  return {
-    ...route,
-    component,
-    components,
-    indexRoute,
-    ...(isEmptyArray(childRoutes)
-      ? {}
-      : { childRoutes }
-    ),
-  };
+function joinPaths(path1: string, path2: string = ''): string {
+  return `${path1.replace(/\/$/, '')}/${path2.replace(/^\//, '')}`;
 }
 
 /**
- * Turn PlainRoutes into SyncRoutes by resolving react-router async getters
- * to their synchronous equivalents:
- *  - getChildRoutes -> childRoutes
- *  - getComponent   -> component
- *  - getComponents  -> components
- *  - getIndexRoute  -> indexRoute
- *
- * @param prefix Only routes matching this prefix will be returned
- * @param routes The list of PlainRoutes
+ * Immediately call `fn()` and resolve with a CPS function which resolves synchronously with the
+ * resolved value of `fn()`.
  */
-async function synchronizeRoutes(
-  filterRoutes: (route: PlainRoute, fullPath: string) => boolean,
-  pathprefix,
-  routes: PlainRoute[] = []
-): SyncRoute[] {
-  return await Promise.all(routes.filter(
-    route => filterRoutes(route, pathprefix + route.path)
-  ).map(
-    route => synchronizeRoute(filterRoutes, pathprefix, route)
-  ));
-}
+type SynchronizeCPSFunctionType<T> =
+  (fn: CPSFunction0<T>) => (cb: CPSCallback<CPSFunction0<T>>) => void;
+export const synchronizeCPSFunction: SynchronizeCPSFunctionType<*> =
+  (fn) => seq(fn, asyncify(result => asyncify(() => result)));
 
-export async function synchronize(prefix = '', routes): SyncRoute[] {
-  const plainRoutes: PlainRoute[] = createRoutes(routes);
-  return await synchronizeRoutes(
-    (route, fullPath) => matchesPrefix(prefix, fullPath),
-    '',
-    plainRoutes
-  );
-}
-
-function isRouteSynchronous(filterPrefix, parentPrefix, route) {
-  const fullPath = joinPaths(parentPrefix, route.path || '');
-  return !matchesPrefix(filterPrefix, fullPath) || (
-    !route.getComponent &&
-    !route.getComponents &&
-    !route.getIndexRoute &&
-    !route.getChildRoutes &&
-    (!route.childRoutes || every(
-      isRouteSynchronous.bind(null, filterPrefix, fullPath),
-      route.childRoutes
-    ))
-  );
-}
-
-export function isSynchronous(prefix: string = '', routes: PlainRoute | PlainRoute[]) {
-  if (Array.isArray(routes)) {
-    return every(isRouteSynchronous.bind(null, prefix, ''), routes);
+export function synchronizeRoute(
+  filterPrefix: string,
+  pathPrefix: string,
+  route: ?PlainRoute,
+  cb: CPSCallback<SyncRoute>
+) {
+  if (!route) {
+    return undefined;
   }
-  return isRouteSynchronous(prefix, '', routes);
+  parallel({
+    ...(route.getComponent ? {
+      getComponent: synchronizeCPSFunction(route.getComponent.bind(null, /* nextState: */ null)),
+    } : {}),
+    ...(route.getComponents ? {
+      getComponents: synchronizeCPSFunction(route.getComponents.bind(null, /* nextState: */ null)),
+    } : {}),
+    ...(route.getIndexRoute ? {
+      getIndexRoute: synchronizeCPSFunction(seq(
+        route.getIndexRoute.bind(null, /* partialNextState */ null),
+        synchronizeRoute.bind(
+          null,
+          filterPrefix,
+          joinPaths(pathPrefix, route.path),
+        ),
+      )),
+    } : {}),
+    ...(route.getChildRoutes ? {
+      getChildRoutes: synchronizeCPSFunction(seq(
+        route.getChildRoutes.bind(null, /* partialNextState */ null),
+        (childRoutes, cb) => {
+          debugger;
+          synchronizeRoutes.call(
+            null,
+            filterPrefix,
+            joinPaths(pathPrefix, route.path),
+            childRoutes,
+            cb,
+            /* childRoutes from `route.getChildRoutes` */
+            /* cb from `seq` */
+          );
+        },
+      )),
+    } : {}),
+  }, (error: ?Error, {
+    getComponent,
+    getComponents,
+    getIndexRoute,
+    getChildRoutes,
+  }) => {
+    if (error) {
+      cb(error);
+    }
+    cb(null, {
+      ...route,
+      ...(getComponent ? { getComponent } : {}),
+      ...(getComponents ? { getComponents } : {}),
+      ...(getIndexRoute ? { getIndexRoute } : {}),
+      ...(getChildRoutes ? { getChildRoutes } : {}),
+    });
+  });
 }
+
+function synchronizeRoutes(
+  filterPrefix: string,
+  pathPrefix: string,
+  routes: PlainRoute[],
+  cb: CPSCallback<SyncRoute[]>,
+) {
+  const matchedRoutes = routes.filter(
+    (route) => matchesPrefix(filterPrefix, joinPaths(pathPrefix, route.path))
+  );
+  map(matchedRoutes, synchronizeRoute.bind(null, filterPrefix, pathPrefix), cb);
+}
+
+function synchronize(
+  prefix: string,
+  routes: PlainRoute | PlainRoute[],
+  cb: CPSCallback<SyncRoute[]>,
+) {
+  const plainRoutes: PlainRoute[] = createRoutes(routes);
+  synchronizeRoutes(
+    prefix,
+    '',
+    plainRoutes,
+    cb,
+  );
+}
+
+export default synchronize;

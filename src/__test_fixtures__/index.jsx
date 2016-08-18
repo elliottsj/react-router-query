@@ -33,7 +33,7 @@ export function Dashboard() {
 export function About() {
   return <div>About</div>;
 }
-export function Inbox({ children }) {
+export function Inbox({ children }: { children?: React$Element<*> }) {
   return (
     <div>
       <h1>Inbox</h1>
@@ -41,9 +41,6 @@ export function Inbox({ children }) {
     </div>
   );
 }
-Inbox.propTypes = {
-  children: PropTypes.node,
-};
 export function Message() {
   return <div>Message</div>;
 }

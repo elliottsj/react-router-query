@@ -21,7 +21,10 @@
         2,
         "never"
     ],
-    "flowtype/type-id-match": 2,
+    "flowtype/type-id-match": [
+      2,
+      "^[A-Z][a-z0-9]*"
+    ],
     "flowtype/use-flow-type": 2,
     "flowtype/valid-syntax": 2,
     "import/no-extraneous-dependencies": [2, {

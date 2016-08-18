@@ -55,10 +55,10 @@
     "react-router": "^2.6.0"
   },
   "dependencies": {
+    "async": "^2.0.1",
     "babel-runtime": "^6.11.6",
     "hoist-non-react-statics": "^1.2.0",
     "lodash": "^4.15.0",
-    "pify": "^2.3.0",
     "recompose": "^0.20.2",
     "rxjs": "^5.0.0-beta.10"
   },

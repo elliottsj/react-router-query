@@ -10,9 +10,8 @@ import {
 import {
   flatten,
 } from './flatten';
-import {
+import synchronize, {
   isSynchronous,
-  synchronize,
 } from './synchronize';
 
 /**
