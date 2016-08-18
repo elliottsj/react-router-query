@@ -4,7 +4,6 @@ import asyncify from 'async/asyncify';
 import map from 'async/map';
 import parallel from 'async/parallel';
 import seq from 'async/seq';
-import every from 'lodash/fp/every';
 import {
   createRoutes,
 } from 'react-router';
@@ -43,7 +42,7 @@ function joinPaths(path1: string, path2: string = ''): string {
 
 /**
  * Immediately call `fn()` and resolve with a CPS function which resolves synchronously with the
- * resolved value of `fn()`.
+ * original resolved value of `fn()`.
  */
 type SynchronizeCPSFunctionType<T> =
   (fn: CPSFunction0<T>) => (cb: CPSCallback<CPSFunction0<T>>) => void;
@@ -53,12 +52,9 @@ export const synchronizeCPSFunction: SynchronizeCPSFunctionType<*> =
 export function synchronizeRoute(
   filterPrefix: string,
   pathPrefix: string,
-  route: ?PlainRoute,
+  route: PlainRoute,
   cb: CPSCallback<SyncRoute>
 ) {
-  if (!route) {
-    return undefined;
-  }
   parallel({
     ...(route.getComponent ? {
       getComponent: synchronizeCPSFunction(route.getComponent.bind(null, /* nextState: */ null)),
@@ -73,24 +69,21 @@ export function synchronizeRoute(
           null,
           filterPrefix,
           joinPaths(pathPrefix, route.path),
+          /* route from `route.getIndexRoute` */
+          /* cb from `seq` */
         ),
       )),
     } : {}),
     ...(route.getChildRoutes ? {
       getChildRoutes: synchronizeCPSFunction(seq(
         route.getChildRoutes.bind(null, /* partialNextState */ null),
-        (childRoutes, cb) => {
-          debugger;
-          synchronizeRoutes.call(
-            null,
-            filterPrefix,
-            joinPaths(pathPrefix, route.path),
-            childRoutes,
-            cb,
-            /* childRoutes from `route.getChildRoutes` */
-            /* cb from `seq` */
-          );
-        },
+        synchronizeRoutes.bind(
+          null,
+          filterPrefix,
+          joinPaths(pathPrefix, route.path),
+          /* childRoutes from `route.getChildRoutes` */
+          /* cb from `seq` */
+        ),
       )),
     } : {}),
   }, (error: ?Error, {
@@ -124,7 +117,7 @@ function synchronizeRoutes(
   map(matchedRoutes, synchronizeRoute.bind(null, filterPrefix, pathPrefix), cb);
 }
 
-function synchronize(
+export default function synchronize(
   prefix: string,
   routes: PlainRoute | PlainRoute[],
   cb: CPSCallback<SyncRoute[]>,
@@ -137,5 +130,3 @@ function synchronize(
     cb,
   );
 }
-
-export default synchronize;
