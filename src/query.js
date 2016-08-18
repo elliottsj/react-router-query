@@ -3,16 +3,9 @@
 import compose from 'lodash/fp/compose';
 import curry from 'lodash/fp/curry';
 import filter from 'lodash/fp/filter';
-import {
-  createRoutes,
-} from 'react-router';
 
-import {
-  flatten,
-} from './flatten';
-import synchronize, {
-  isSynchronous,
-} from './synchronize';
+import flatten from './flatten';
+import synchronize from './synchronize';
 
 /**
  * Return an array of `FlatRoute`s which are rooted at the given prefix.
@@ -22,22 +15,23 @@ import synchronize, {
  */
 function _query(
   prefix: string,
-  routes: PlainRoute[] | SyncRoute[],
-): Promise<FlatRoute[]> | FlatRoute[] {
-  const flattenWithPrefix = compose(
-    filter(route => route.fullPath.startsWith(prefix)),
-    flatten
-  );
-
-  const plainRoutes: PlainRoute[] = createRoutes(routes);
-  if (isSynchronous(prefix, plainRoutes)) {
-    return flattenWithPrefix(plainRoutes);
-  }
-  return synchronize(prefix, plainRoutes).then(flattenWithPrefix);
+  routes: PlainRoute | PlainRoute[],
+  cb: CPSCallback<FlatRoute[]>,
+) {
+  synchronize(prefix, routes, (error, syncRoutes) => {
+    const flatRoutes = flatten(syncRoutes);
+    const matchedRoutes = flatRoutes.filter(
+      route => route.fullPath.startsWith(prefix)
+    );
+    cb(null, matchedRoutes);
+  });
 }
 
-export const query:
+const query:
   (prefix: string) =>
-  (routes: PlainRoute[] | SyncRoute[]) =>
-  Promise<FlatRoute[]> | FlatRoute[] =
-    curry(_query);
+  (routes: PlainRoute | PlainRoute[]) =>
+  (cb: CPSCallback<FlatRoute[]>) =>
+  void =
+  curry(_query);
+
+export default query;

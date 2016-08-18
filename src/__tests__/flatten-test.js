@@ -1,6 +1,4 @@
-import {
-  flatten,
-} from '../flatten';
+import flatten from '../flatten';
 import {
   App,
   Dashboard,

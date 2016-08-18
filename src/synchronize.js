@@ -8,10 +8,17 @@ import {
   createRoutes,
 } from 'react-router';
 
-export { default as RoutesProvider } from './components/RoutesProvider';
-export { default as withQuery } from './components/withQuery';
+export const isSync =
+  Symbol('A boolean value indicating if a CPS function will resolve synchronously');
 
-export const isEmptyArray = (array: any[]) => Array.isArray(array) && array.length === 0;
+/**
+ * Take a sync function and make it async, passing its return value to a callback.
+ */
+export function syncAsyncify(fn: Function) {
+  const asyncFn = asyncify(fn);
+  asyncFn[isSync] = true;
+  return asyncFn;
+}
 
 /**
  * Return true iff the given route path matches the given path prefix.
@@ -47,7 +54,7 @@ function joinPaths(path1: string, path2: string = ''): string {
 type SynchronizeCPSFunctionType<T> =
   (fn: CPSFunction0<T>) => (cb: CPSCallback<CPSFunction0<T>>) => void;
 export const synchronizeCPSFunction: SynchronizeCPSFunctionType<*> =
-  (fn) => seq(fn, asyncify(result => asyncify(() => result)));
+  (fn) => seq(fn, syncAsyncify(result => syncAsyncify(() => result)));
 
 export function synchronizeRoute(
   filterPrefix: string,
