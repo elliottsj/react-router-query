@@ -1,8 +1,6 @@
 // @flow
 
-import compose from 'lodash/fp/compose';
 import curry from 'lodash/fp/curry';
-import filter from 'lodash/fp/filter';
 
 import flatten from './flatten';
 import synchronize from './synchronize';
