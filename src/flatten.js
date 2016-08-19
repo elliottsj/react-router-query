@@ -1,53 +1,41 @@
 // @flow
 
-import compact from 'lodash/fp/compact';
-import compose from 'lodash/fp/compose';
 import flatMap from 'lodash/fp/flatMap';
-import map from 'lodash/fp/map';
-import { isSync } from './synchronize';
+import { syncify } from './utils/cps';
+import joinPaths from './utils/joinPaths';
 
-export const compactMap = compose(compact, map);
-
-function normalizePath(p: string) {
-  return p.replace(/\/\//g, '/');
+function getIndexRoute(route) {
+  return (
+    route.indexRoute ||
+    (route.getIndexRoute && syncify(route.getIndexRoute, null))
+  );
 }
 
-export function flattenRoute(parents: ?Array<SyncRoute>, route: SyncRoute): FlatRoute[] {
-  const newParents = [...parents, route];
+function getChildRoutes(route) {
+  return (
+    route.childRoutes ||
+    (route.getChildRoutes && syncify(route.getChildRoutes, null))
+  );
+}
+
+export function flattenRoute(parents: SyncRoute[], route: SyncRoute): FlatRoute[] {
+  const flattenRouteWithParents = flattenRoute.bind(null, [...parents, route]);
   let flatRoutes = [];
-  if (route.indexRoute) {
-    flatRoutes = [...flatRoutes, ...flattenRoute(newParents, route.indexRoute)];
-  } else if (route.getIndexRoute && route.getIndexRoute[isSync]) {
-    route.getIndexRoute(null, (error, indexRoute) => {
-      flatRoutes = [...flatRoutes, ...flattenRoute(newParents, indexRoute)];
-    });
+  const indexRoute = getIndexRoute(route);
+  if (indexRoute) {
+    // Recurse on the index route
+    flatRoutes = [...flatRoutes, ...flattenRouteWithParents(indexRoute)];
   }
-  let childRoutesEmpty = true;
-  if (route.childRoutes) {
-    childRoutesEmpty = route.childRoutes.length === 0;
-    flatRoutes = [...flatRoutes, ...flatMap(childRoute => flattenRoute(newParents, childRoute), route.childRoutes)];
-  } else if (route.getChildRoutes && route.getChildRoutes[isSync]) {
-    route.getChildRoutes(null, (error, childRoutes) => {
-      childRoutesEmpty = childRoutes.length === 0;
-      flatRoutes = [...flatRoutes, ...flatMap(childRoute => flattenRoute(newParents, childRoute), childRoutes)];
-    });
+  const childRoutes = getChildRoutes(route);
+  if (childRoutes) {
+    // Recurse on the child routes
+    flatRoutes = [...flatRoutes, ...flatMap(flattenRouteWithParents, childRoutes)];
   }
-  if (
-    !route.indexRoute &&
-    !(route.getIndexRoute && route.getIndexRoute[isSync]) &&
-    (
-      (
-        !route.childRoutes &&
-        !(route.getChildRoutes && route.getChildRoutes[isSync])
-      ) ||
-      childRoutesEmpty
-    )
-  ) {
+  if (!indexRoute && (!childRoutes || childRoutes.length === 0)) {
     // This is a leaf route; add it to the list of flat routes
-    const newPath = normalizePath(`${compactMap(parent => parent.path, parents).join('/')}${route.path ? `/${route.path}` : ''}`);
     flatRoutes = [...flatRoutes, {
       ...route,
-      fullPath: newPath,
+      fullPath: [...parents.map(p => p.path), route.path].reduce(joinPaths, ''),
       parents,
     }];
   }

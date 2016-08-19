@@ -1,6 +1,5 @@
 // @flow
 
-import asyncify from 'async/asyncify';
 import map from 'async/map';
 import parallel from 'async/parallel';
 import seq from 'async/seq';
@@ -8,17 +7,8 @@ import {
   createRoutes,
 } from 'react-router';
 
-export const isSync =
-  Symbol('A boolean value indicating if a CPS function will resolve synchronously');
-
-/**
- * Take a sync function and make it async, passing its return value to a callback.
- */
-export function syncAsyncify(fn: Function) {
-  const asyncFn = asyncify(fn);
-  asyncFn[isSync] = true;
-  return asyncFn;
-}
+import { callAndMemoize } from './utils/cps';
+import joinPaths from './utils/joinPaths';
 
 /**
  * Return true iff the given route path matches the given path prefix.
@@ -34,28 +24,6 @@ function matchesPrefix(prefix: string, routePath: string): boolean {
   return prefix.startsWith(routePath) || routePath.startsWith(prefix);
 }
 
-/**
- * Join two '/'-delimited paths, removing duplicate '/'s at the point of joining.
- *
- * @example
- *   joinPaths('/', 'inbox')              // '/inbox'
- *   joinPaths('/', '/inbox')             // '/inbox'
- *   joinPaths('inbox', 'messages')       // 'inbox/messages'
- *   joinPaths('/inbox/messages/', '/1/') // '/inbox/messages/1/'
- */
-function joinPaths(path1: string, path2: string = ''): string {
-  return `${path1.replace(/\/$/, '')}/${path2.replace(/^\//, '')}`;
-}
-
-/**
- * Immediately call `fn()` and resolve with a CPS function which resolves synchronously with the
- * original resolved value of `fn()`.
- */
-type SynchronizeCPSFunctionType<T> =
-  (fn: CPSFunction0<T>) => (cb: CPSCallback<CPSFunction0<T>>) => void;
-export const synchronizeCPSFunction: SynchronizeCPSFunctionType<*> =
-  (fn) => seq(fn, syncAsyncify(result => syncAsyncify(() => result)));
-
 export function synchronizeRoute(
   filterPrefix: string,
   pathPrefix: string,
@@ -64,13 +32,13 @@ export function synchronizeRoute(
 ) {
   parallel({
     ...(route.getComponent ? {
-      getComponent: synchronizeCPSFunction(route.getComponent.bind(null, /* nextState: */ null)),
+      getComponent: callAndMemoize(route.getComponent.bind(null, /* nextState: */ null)),
     } : {}),
     ...(route.getComponents ? {
-      getComponents: synchronizeCPSFunction(route.getComponents.bind(null, /* nextState: */ null)),
+      getComponents: callAndMemoize(route.getComponents.bind(null, /* nextState: */ null)),
     } : {}),
     ...(route.getIndexRoute ? {
-      getIndexRoute: synchronizeCPSFunction(seq(
+      getIndexRoute: callAndMemoize(seq(
         route.getIndexRoute.bind(null, /* partialNextState */ null),
         synchronizeRoute.bind(
           null,
@@ -82,7 +50,7 @@ export function synchronizeRoute(
       )),
     } : {}),
     ...(route.getChildRoutes ? {
-      getChildRoutes: synchronizeCPSFunction(seq(
+      getChildRoutes: callAndMemoize(seq(
         route.getChildRoutes.bind(null, /* partialNextState */ null),
         synchronizeRoutes.bind(
           null,

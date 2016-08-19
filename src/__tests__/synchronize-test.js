@@ -1,9 +1,6 @@
 // @flow
 
 import synchronize, {
-  isSync,
-  syncAsyncify,
-  synchronizeCPSFunction,
   synchronizeRoute,
 } from '../synchronize';
 
@@ -19,50 +16,6 @@ import {
   routesPlain,
   routesPlainPartialAsync,
 } from '../__test_fixtures__';
-
-describe('syncAsyncify', () => {
-  it('sets the `isSync` symbol on the returned function', () => {
-    const fn = syncAsyncify((x, y) => x + y);
-    expect(fn[isSync]).toBe(true);
-  });
-
-  it('returns a CPS function which resolves synchronously', () => {
-    let done = false;
-    const fn = syncAsyncify((x, y) => x + y);
-    fn(1, 2, (error, result) => {
-      expect(error).toBe(null);
-      expect(result).toBe(3);
-      done = true;
-    });
-    expect(done).toBe(true);
-  });
-});
-
-describe('synchronizeCPSFunction', () => {
-  it(
-    'creates a CPS function which resolves with the memoized result of the given CPS function',
-    () => new Promise((resolve) => {
-      let done = false;
-      function fn(cb) {
-        setImmediate(() => cb(null, 'hello'));
-      }
-      synchronizeCPSFunction(fn)((error1, syncFn) => {
-        expect(error1).toBe(null);
-        expect(syncFn).toEqual(jasmine.any(Function));
-        let sync = false;
-        syncFn((error2, result) => {
-          expect(error2).toBe(null);
-          expect(result).toBe('hello');
-          sync = true;
-        });
-        expect(sync).toBe(true);
-        done = true;
-        resolve();
-      });
-      expect(done).toBe(false);
-    })
-  );
-});
 
 describe('synchronizeRoute', () => {
   it(
