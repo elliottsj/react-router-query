@@ -111,7 +111,7 @@ export const routesPlain = [
         ],
       },
     ],
-  }
+  },
 ];
 
 export const asyncGetter =
@@ -121,7 +121,7 @@ export const routesPlainPartialAsync = {
   path: '/',
   getComponent: asyncGetter(App),
   indexRoute: {
-    component: Dashboard,
+    getComponent: asyncGetter(Dashboard),
   },
   getChildRoutes: asyncGetter([
     {

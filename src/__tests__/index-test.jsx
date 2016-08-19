@@ -4,6 +4,7 @@ import delay from 'delay';
 import {
   mount,
 } from 'enzyme';
+import memoize from 'memoize-id';
 import React from 'react';
 import {
   createMemoryHistory,
@@ -61,7 +62,8 @@ describe('withQuery', () => {
       childRoutes: [
         {
           path: 'about',
-          getComponent: asyncGetter(About),
+          // Memoize this component getter to resolve subsequent queries synchronously
+          getComponent: memoize(asyncGetter(About), { async: 'immediate' }),
         },
         {
           path: 'inbox',
@@ -197,7 +199,6 @@ describe('withQuery', () => {
       {
         path: 'about',
         fullPath: '/about',
-        component: About,
         getComponent: jasmine.any(Function),
         parents: [jasmine.objectContaining({ component: AppWithQuery })],
       },
@@ -258,7 +259,6 @@ describe('withQuery', () => {
       {
         path: 'about',
         fullPath: '/about',
-        component: About,
         getComponent: jasmine.any(Function),
         parents: [jasmine.objectContaining({ component: AppWithQuery })],
       },

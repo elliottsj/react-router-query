@@ -93,11 +93,29 @@ export function synchronizeRoute(
         ),
       )),
     } : {}),
+    ...(route.indexRoute ? {
+      indexRoute: synchronizeRoute.bind(
+        null,
+        filterPrefix,
+        joinPaths(pathPrefix, route.path),
+        route.indexRoute,
+      ),
+    } : {}),
+    ...(route.childRoutes ? {
+      childRoutes: synchronizeRoutes.bind(
+        null,
+        filterPrefix,
+        joinPaths(pathPrefix, route.path),
+        route.childRoutes,
+      ),
+    } : {}),
   }, (error: ?Error, {
     getComponent,
     getComponents,
     getIndexRoute,
     getChildRoutes,
+    childRoutes,
+    indexRoute,
   }) => {
     if (error) {
       cb(error);
@@ -108,6 +126,8 @@ export function synchronizeRoute(
       ...(getComponents ? { getComponents } : {}),
       ...(getIndexRoute ? { getIndexRoute } : {}),
       ...(getChildRoutes ? { getChildRoutes } : {}),
+      ...(childRoutes && childRoutes.length !== 0 ? { childRoutes } : {}),
+      ...(indexRoute ? { indexRoute } : {}),
     });
   });
 }
@@ -121,7 +141,9 @@ function synchronizeRoutes(
   const matchedRoutes = routes.filter(
     (route) => matchesPrefix(filterPrefix, joinPaths(pathPrefix, route.path))
   );
-  map(matchedRoutes, synchronizeRoute.bind(null, filterPrefix, pathPrefix), cb);
+  map(matchedRoutes, synchronizeRoute.bind(null, filterPrefix, pathPrefix), (err, res) => {
+    cb(err, res);
+  });
 }
 
 export default function synchronize(

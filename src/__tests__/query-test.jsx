@@ -81,7 +81,7 @@ describe('query', () => {
       expect(result).toEqual([
         {
           fullPath: '/',
-          component: Dashboard,
+          getComponent: jasmine.any(Function),
           parents: [jasmine.objectContaining({ path: '/' })],
         },
         {

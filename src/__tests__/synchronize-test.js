@@ -359,15 +359,23 @@ describe('synchronize', () => {
           getComponent: jasmine.any(Function),
           getChildRoutes: jasmine.any(Function),
           indexRoute: {
-            component: Dashboard,
+            getComponent: jasmine.any(Function),
           },
         },
       ]);
+      let sync = 0;
       result[0].getComponent(null, (error1, component) => {
+        sync += 1;
         expect(error1).toBe(null);
         expect(component).toBe(App);
       });
+      result[0].indexRoute.getComponent(null, (error1, component) => {
+        sync += 1;
+        expect(error1).toBe(null);
+        expect(component).toBe(Dashboard);
+      });
       result[0].getChildRoutes(null, (error1, childRoutes0) => {
+        sync += 1;
         expect(error1).toBe(null);
         expect(childRoutes0).toEqual([
           {
@@ -397,24 +405,29 @@ describe('synchronize', () => {
           },
         ]);
         childRoutes0[1].getComponent(null, (error2, component) => {
+          sync += 1;
           expect(error2).toBe(null);
           expect(component).toBe(Inbox);
         });
         childRoutes0[1].getIndexRoute(null, (error2, indexRoute) => {
+          sync += 1;
           expect(error2).toBe(null);
           expect(indexRoute).toEqual({
             getComponent: jasmine.any(Function),
           });
           indexRoute.getComponent(null, (error3, component) => {
+            sync += 1;
             expect(error3).toBe(null);
             expect(component).toBe(Messages);
           });
         });
         childRoutes0[1].childRoutes[0].getComponent(null, (error2, component) => {
+          sync += 1;
           expect(error2).toBe(null);
           expect(component).toBe(Settings);
         });
         childRoutes0[2].getChildRoutes(null, (error2, childRoutes1) => {
+          sync += 1;
           expect(error2).toBe(null);
           expect(childRoutes1).toEqual([
             {
@@ -423,12 +436,14 @@ describe('synchronize', () => {
             },
           ]);
           childRoutes1[0].getComponent(null, (error, component) => {
+            sync += 1;
             expect(error).toBe(null);
             expect(component).toBe(Message);
           });
         });
       });
       done = true;
+      expect(sync).toBe(9);
       resolve();
     });
     expect(done).toBe(false);
@@ -446,15 +461,23 @@ describe('synchronize', () => {
             getComponent: jasmine.any(Function),
             getChildRoutes: jasmine.any(Function),
             indexRoute: {
-              component: Dashboard,
+              getComponent: jasmine.any(Function),
             },
           },
         ]);
+        let sync = 0;
         result[0].getComponent(null, (error1, component) => {
+          sync += 1;
           expect(error1).toBe(null);
           expect(component).toBe(App);
         });
+        result[0].indexRoute.getComponent(null, (error1, component) => {
+          sync += 1;
+          expect(error1).toBe(null);
+          expect(component).toBe(Dashboard);
+        });
         result[0].getChildRoutes(null, (error1, childRoutes) => {
+          sync += 1;
           expect(error1).toBe(null);
           expect(childRoutes).toEqual([
             {
@@ -481,29 +504,35 @@ describe('synchronize', () => {
             },
           ]);
           childRoutes[0].getComponent(null, (error2, component) => {
+            sync += 1;
             expect(error2).toBe(null);
             expect(component).toBe(Inbox);
           });
           childRoutes[0].getIndexRoute(null, (error2, indexRoute) => {
+            sync += 1;
             expect(error2).toBe(null);
             expect(indexRoute).toEqual({
               getComponent: jasmine.any(Function),
             });
             indexRoute.getComponent(null, (error3, component) => {
+              sync += 1;
               expect(error3).toBe(null);
               expect(component).toBe(Messages);
             });
           });
           childRoutes[0].childRoutes[0].getComponent(null, (error, component) => {
+            sync += 1;
             expect(error).toBe(null);
             expect(component).toBe(Settings);
           });
           childRoutes[1].getChildRoutes(null, (error, childRoutes1) => {
+            sync += 1;
             expect(error).toBe(null);
             expect(childRoutes1).toEqual([]);
           });
         });
         done = true;
+        expect(sync).toBe(8);
         resolve();
       });
       expect(done).toBe(false);
