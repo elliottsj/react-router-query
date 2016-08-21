@@ -1,6 +1,3 @@
-// flow-typed signature: dc5201ee287a6cf1c84c3d29b0643b66
-// flow-typed version: c13af39626/jasmine_v2.4.x/flow_vx.x.x
-
 type JasmineExpectType = {
   not: JasmineExpectType;
   toBe(value: mixed): void;
@@ -62,6 +59,7 @@ type JasmineClockType = {
 }
 
 declare var jasmine: {
+  DEFAULT_TIMEOUT_INTERVAL: number;
   createSpy(name: string): JasmineSpyType;
   any(val: mixed): void;
   anything(): void;

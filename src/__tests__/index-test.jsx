@@ -38,7 +38,6 @@ describe('withQuery', () => {
   let wrapper;
 
   beforeEach(() => {
-    // $FlowFixMe: wait for Jest flow-typed definition for useRealTimers
     jest.useRealTimers();
 
     appQueries = {

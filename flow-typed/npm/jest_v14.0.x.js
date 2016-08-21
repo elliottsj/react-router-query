@@ -1,6 +1,3 @@
-// flow-typed signature: 137aba5f58f1d6ae2eac9ffbe61d07f5
-// flow-typed version: ac68a1c3f9/jest_v14.0.x/flow_>=v0.23.x
-
 // flow-typed signature: e2130120dcdc34bf09ff82449b0d508c
 // flow-typed version: 230d7577ce/jest_v12.0.x/flow_>=v0.23.x
 
@@ -58,6 +55,8 @@ declare var jest: {
   clearAllTimers(): void;
   currentTestPath(): void;
   disableAutomock(): void;
+  doMock(moduleName: string, moduleFactory?: any): void;
+  dontMock(moduleName: string): void;
   enableAutomock(): void;
   fn(implementation?: Function): JestMockFn;
   genMockFromModule(moduleName: string): any;
@@ -67,8 +66,6 @@ declare var jest: {
   runOnlyPendingTimers(): void;
   setMock(moduleName: string, moduleExports: any): void;
   unmock(moduleName: string): void;
-}
-
-declare var jasmine: {
-  DEFAULT_TIMEOUT_INTERVAL: number;
+  useFakeTimers(): void;
+  useRealTimers(): void;
 }
