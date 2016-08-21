@@ -6,7 +6,7 @@
   "scripts": {
     "build": "babel src --out-dir lib",
     "develop": "babel src --watch --out-dir lib",
-    "flow": "flow",
+    "flow": "flow; test $? -eq 0 -o $? -eq 2",
     "flow-typed": "flow-typed",
     "jest": "jest",
     "lint": "eslint src",
