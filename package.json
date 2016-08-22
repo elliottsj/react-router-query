@@ -69,12 +69,15 @@
   },
   "jest": {
     "automock": false,
-    "testFileExtensions": [
+    "moduleFileExtensions": [
       "js",
-      "jsx"
+      "json",
+      "jsx",
+      "node"
     ],
     "testPathDirs": [
       "<rootDir>/src"
-    ]
+    ],
+    "testRegex": "__tests__/.*\\.jsx?$"
   }
 }
