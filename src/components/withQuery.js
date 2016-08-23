@@ -4,7 +4,7 @@ import Rx, { Observable } from 'rxjs/Rx';
 import compose from 'lodash/fp/compose';
 import mapValues from 'lodash/fp/mapValues';
 import { PropTypes } from 'react';
-import { getContext, mapPropsStream, withProps } from 'recompose';
+import { getContext, mapPropsStream, setStatic, withProps } from 'recompose';
 
 function resolveQueryProps(props$) {
   const rxjsProps$ = Rx.Observable.from(props$);
@@ -38,6 +38,7 @@ function resolveQueryProps(props$) {
 type PartialQuery = (routes: PlainRoute | PlainRoute[]) => (cb: CPSCallback<FlatRoute[]>) => void;
 
 const withQuery = (queries: { [name: string]: PartialQuery }) => compose(
+  setStatic('__queries', queries),
   withProps({ queries }),
   getContext({
     __routes: PropTypes.arrayOf(PropTypes.object).isRequired,
