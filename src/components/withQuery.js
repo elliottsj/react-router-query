@@ -1,22 +1,30 @@
 // @flow
 
-import Rx, { Observable } from 'rxjs/Rx';
+import { Observable } from 'rxjs/Rx';
+import 'rxjs/add/observable/from';
+import 'rxjs/add/observable/pairs';
+import 'rxjs/add/observable/bindNodeCallback';
+import 'rxjs/add/operator/combineLatest';
+import 'rxjs/add/operator/map';
+import 'rxjs/add/operator/mergeMap'; // flatMap
+import 'rxjs/add/operator/scan';
+
 import compose from 'lodash/fp/compose';
 import mapValues from 'lodash/fp/mapValues';
 import { PropTypes } from 'react';
 import { getContext, mapPropsStream, setStatic, withProps } from 'recompose';
 
 function resolveQueryProps(props$) {
-  const rxjsProps$ = Rx.Observable.from(props$);
+  const rxjsProps$ = Observable.from(props$);
   // Instantiate queries
   const queries$: Observable<{ [name: string]: CPSFunction0<FlatRoute[]> }> = rxjsProps$.map(
     ({ __routes, queries }) => mapValues(query => query(__routes), queries),
   );
   const queryResults$: Observable<[string, FlatRoute[]]> =
     queries$
-      .flatMap(queries => Rx.Observable.pairs(queries))
+      .flatMap(queries => Observable.pairs(queries))
       .flatMap(([name, partialQuery]: [string, CPSFunction0<FlatRoute[]>]) => {
-        const query$ = Rx.Observable.bindNodeCallback(partialQuery)();
+        const query$ = Observable.bindNodeCallback(partialQuery)();
         return query$.map(result => [name, result]);
       })
       .scan(
