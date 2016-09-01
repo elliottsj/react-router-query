@@ -24,8 +24,6 @@ import {
 
 describe('resolveComponentsQueries', () => {
   it('resolves queries for an array of components', () => new Promise((resolve) => {
-    jest.useRealTimers();
-
     const appQueries = {
       // Async
       pages: query('/'),

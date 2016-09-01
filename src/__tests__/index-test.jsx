@@ -39,8 +39,6 @@ describe('withQuery', () => {
   let wrapper;
 
   beforeEach(() => {
-    jest.useRealTimers();
-
     appQueries = {
       // Async
       pages: query('/'),
