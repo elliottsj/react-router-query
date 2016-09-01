@@ -48,7 +48,7 @@
     "eslint-plugin-react": "^6.0.0",
     "flow-bin": "0.31.1",
     "flow-typed": "^2.0.0-beta.6",
-    "jest-cli": "^14.1.0",
+    "jest-cli": "^15.1.0",
     "memoize-id": "^0.2.0",
     "react": "^15.3.0",
     "react-addons-test-utils": "^15.3.0",
@@ -67,7 +67,6 @@
     "react-router": "^2.6.1"
   },
   "jest": {
-    "automock": false,
     "moduleFileExtensions": [
       "js",
       "json",
