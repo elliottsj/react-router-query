@@ -46,7 +46,7 @@
     "eslint-plugin-import": "^1.13.0",
     "eslint-plugin-jsx-a11y": "^2.1.0",
     "eslint-plugin-react": "^6.0.0",
-    "flow-bin": "0.32.0",
+    "flow-bin": "0.34.0",
     "flow-typed": "^2.0.0-beta.6",
     "jest-cli": "^15.1.0",
     "memoize-id": "^0.2.0",
