@@ -1,7 +1,8 @@
 # react-router-query
+
+[![No Maintenance Intended](http://unmaintained.tech/badge.svg)](http://unmaintained.tech/)
 [![npm version](https://img.shields.io/npm/v/react-router-query.svg)](https://www.npmjs.com/package/react-router-query)
 [![Travis CI Build Status](https://travis-ci.org/elliottsj/react-router-query.svg?branch=master)](https://travis-ci.org/elliottsj/react-router-query)
-[![Dependency Status](https://dependencyci.com/github/elliottsj/react-router-query/badge)](https://dependencyci.com/github/elliottsj/react-router-query)
 
 An API to query static [react-router][] routes.
 
